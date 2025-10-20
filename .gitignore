@@ -1,0 +1,36 @@
+# ###################### #
+#  Project Specific Files
+# ###################### #
+
+# Ignore all data. This includes genomes, models, VCFs, MPRA data, etc.
+# Data should be downloaded or generated, not stored in Git.
+Enformer/Pipeline/Data/Genome/
+
+# Ignore all generated results, plots, and intermediate files
+Enformer/Scripts/
+# Ignore all log files
+Enformer/Pipeline/logs/
+
+# Ignore specific test data files that might be in script folders
+Enformer/Pipeline/Scripts/test.tsv
+
+# Virtual environments
+Enformer/.venv/
+Enformer/venv/
+Enformer/*.env/
+Enformer/Pipeline/.snakemake/
+
+# Local environment variable files (often contain secrets)
+Enformer/.env
+
+# Python cache
+Enformer/__pycache__/
+Enformer/*.pyc
+Enformer/*.pyo
+Enformer/*.pyd
+
+# IDE / Editor configuration
+Enformer/.vscode/
+Enformer/.idea/
+Enformer/*.swp
+Enformer/*.swo
