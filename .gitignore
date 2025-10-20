@@ -5,6 +5,7 @@
 # Ignore all data. This includes genomes, models, VCFs, MPRA data, etc.
 # Data should be downloaded or generated, not stored in Git.
 Enformer/Pipeline/Data/Genome/
+Enformer/Pipeline/Data/VCF/clinvar.vcf.gz
 
 # Ignore all generated results, plots, and intermediate files
 Enformer/Scripts/
