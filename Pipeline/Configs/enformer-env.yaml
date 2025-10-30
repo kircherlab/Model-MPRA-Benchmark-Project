@@ -1,0 +1,15 @@
+name: enformer-env
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.9
+  - tensorflow=2.11
+  - tensorflow-hub
+  - pandas
+  - numpy
+  - kipoiseq
+  - pyfaidx
+  - pip
+  - pip:
+    - tf-keras-vis 

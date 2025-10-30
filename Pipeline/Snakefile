@@ -1,0 +1,216 @@
+# Unified Snakefile for Model-MPRA Benchmark
+# Supports multiple DNA sequence models (Enformer, Basenji, etc.)
+
+configfile: "Configs/config.yaml"
+
+# Determine which models to run
+MODELS_TO_RUN = [model for model, enabled in config.get("models", {}).items() if enabled]
+
+# Define all final outputs based on which models are enabled
+def get_all_outputs():
+    outputs = []
+    for model in MODELS_TO_RUN:
+        outputs.extend([
+            f"results/{model}/{model}_scores.csv",
+            f"results/{model}/merged_data.tsv",
+            f"results/{model}/plots/correlation.png"
+        ])
+    return outputs
+
+# The 'all' rule specifies the final outputs for all enabled models
+rule all:
+    input:
+        get_all_outputs()
+
+# =============================================================================
+# PREPROCESSING: Filter VCF by max_variants
+# =============================================================================
+
+rule filter_vcf:
+    input:
+        vcf=config["vcf"]
+    output:
+        filtered_vcf="Data/VCF/filtered_variants.vcf.gz"
+    params:
+        max_variants=config.get("max_variants", "all")
+    log:
+        "logs/preprocessing/filter_vcf.log"
+    shell:
+        """
+        set +e  # Temporarily disable strict error checking
+        mkdir -p Data/VCF logs/preprocessing
+        
+        if [ "{params.max_variants}" = "all" ]; then
+            # No filtering, just copy the original VCF
+            cp {input.vcf} {output.filtered_vcf}
+            echo "No filtering applied (max_variants=all)" > {log}
+        else
+            # Count header lines and filter in one pass
+            zcat {input.vcf} | awk -v max={params.max_variants} '
+                BEGIN {{ variant_count=0; header_count=0 }}
+                /^#/ {{ print; header_count++; next }}
+                variant_count < max {{ print; variant_count++ }}
+                variant_count >= max {{ exit }}
+            ' | gzip > {output.filtered_vcf}
+            
+            # Log the results
+            RESULT_LINES=$(zcat {output.filtered_vcf} | wc -l)
+            echo "Filtered VCF to first {params.max_variants} variants" > {log}
+            echo "Total lines in output: $RESULT_LINES" >> {log}
+        fi
+        
+        set -e  # Re-enable strict error checking
+        """
+
+# =============================================================================
+# ENFORMER RULES
+# =============================================================================
+
+rule run_enformer:
+    input:
+        script="Scripts/enformer_SAD_v2.py",
+        vcf="Data/VCF/filtered_variants.vcf.gz",
+        fasta=config["fasta"],
+        targets=config["targets"]
+    output:
+        "results/enformer/enformer_scores.csv"
+    log:
+        "logs/enformer/enformer.log"
+    conda:
+        "Configs/enformer-env.yaml"
+    shell:
+        """
+        mkdir -p results/enformer logs/enformer
+        python {input.script} \
+            --vcf {input.vcf} \
+            --fasta {input.fasta} \
+            --targets {input.targets} \
+            --out {output} \
+            --print_every 50 2>&1 | tee {log}
+        """
+
+rule merge_data_enformer:
+    input:
+        model_scores="results/enformer/enformer_scores.csv",
+        vcf="Data/VCF/filtered_variants.vcf.gz"
+    output:
+        "results/enformer/merged_data.tsv"
+    params:
+        agg_global=config.get("agg_global", False),
+        agg_global_max=config.get("agg_global_max", False),
+        agg_global_min=config.get("agg_global_min", False),
+        agg_per_biosample=config.get("agg_per_biosample", False),
+        agg_per_biosample_max=config.get("agg_per_biosample_max", False),
+        agg_per_biosample_min=config.get("agg_per_biosample_min", False),
+        agg_per_assay=config.get("agg_per_assay", False),
+        agg_per_assay_max=config.get("agg_per_assay_max", False),
+        agg_per_assay_min=config.get("agg_per_assay_min", False),
+    conda:
+        "Configs/analysis-env.yaml"
+    script:
+        "Scripts/merge_data.py"
+
+rule generate_plots_enformer:
+    input:
+        merged_data="results/enformer/merged_data.tsv"
+    output:
+        corr_plot="results/enformer/plots/correlation.png"
+    params:
+        exclude_min=config.get("exclude_min", None),
+        exclude_max=config.get("exclude_max", None)
+    conda:
+        "Configs/analysis-env.yaml"
+    shell:
+        """
+        mkdir -p results/enformer/plots
+        EXCLUDE_ARG=""
+        if [ "{params.exclude_min}" != "None" ] && [ "{params.exclude_max}" != "None" ]; then
+            EXCLUDE_ARG="--exclude_range {params.exclude_min} {params.exclude_max}"
+        fi
+        python Scripts/generate_plots.py \
+            --merged_data {input.merged_data} \
+            --out_corr {output.corr_plot} \
+            $EXCLUDE_ARG
+        """
+
+# =============================================================================
+# BASENJI RULES
+# =============================================================================
+
+rule run_basenji:
+    input:
+        script="Scripts/basenji_sad_wrapper.py",
+        vcf="Data/VCF/filtered_variants.vcf.gz",
+        fasta=config["fasta"],
+        params=config["basenji"]["params"],
+        model=config["basenji"]["model"],
+        basenji_script=config["basenji"]["script"]
+    params:
+        targets=config["basenji"]["targets"],
+        rc="--rc" if config["basenji"].get("rc", False) else "",
+        shifts=config["basenji"].get("shifts", "0")
+    output:
+        "results/basenji/basenji_scores.csv"
+    log:
+        "logs/basenji/basenji.log"
+    conda:
+        "Configs/basenji-env.yaml"
+    shell:
+        """
+        mkdir -p results/basenji logs/basenji
+        python {input.script} \
+            --vcf {input.vcf} \
+            --fasta {input.fasta} \
+            --params {input.params} \
+            --model {input.model} \
+            --basenji_script {input.basenji_script} \
+            --targets {params.targets} \
+            --out_dir results/basenji/basenji_sad_output \
+            --out_csv {output} \
+            --shifts {params.shifts} \
+            {params.rc} 2>&1 | tee {log}
+        """
+
+rule merge_data_basenji:
+    input:
+        model_scores="results/basenji/basenji_scores.csv",
+        vcf="Data/VCF/filtered_variants.vcf.gz"
+    output:
+        "results/basenji/merged_data.tsv"
+    params:
+        agg_global=config.get("agg_global", False),
+        agg_global_max=config.get("agg_global_max", False),
+        agg_global_min=config.get("agg_global_min", False),
+        agg_per_biosample=config.get("agg_per_biosample", False),
+        agg_per_biosample_max=config.get("agg_per_biosample_max", False),
+        agg_per_biosample_min=config.get("agg_per_biosample_min", False),
+        agg_per_assay=config.get("agg_per_assay", False),
+        agg_per_assay_max=config.get("agg_per_assay_max", False),
+        agg_per_assay_min=config.get("agg_per_assay_min", False),
+    conda:
+        "Configs/basenji-env.yaml"
+    script:
+        "Scripts/merge_data.py"
+
+rule generate_plots_basenji:
+    input:
+        merged_data="results/basenji/merged_data.tsv"
+    output:
+        corr_plot="results/basenji/plots/correlation.png"
+    params:
+        exclude_min=config.get("exclude_min", None),
+        exclude_max=config.get("exclude_max", None)
+    conda:
+        "Configs/basenji-env.yaml"
+    shell:
+        """
+        mkdir -p results/basenji/plots
+        EXCLUDE_ARG=""
+        if [ "{params.exclude_min}" != "None" ] && [ "{params.exclude_max}" != "None" ]; then
+            EXCLUDE_ARG="--exclude_range {params.exclude_min} {params.exclude_max}"
+        fi
+        python Scripts/generate_plots.py \
+            --merged_data {input.merged_data} \
+            --out_corr {output.corr_plot} \
+            $EXCLUDE_ARG
+        """

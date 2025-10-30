@@ -2,36 +2,187 @@
 #  Project Specific Files
 # ###################### #
 
-# Ignore all data. This includes genomes, models, VCFs, MPRA data, etc.
-# Data should be downloaded or generated, not stored in Git.
-Enformer/Pipeline/Data/Genome/
-Enformer/Pipeline/Data/VCF/clinvar.vcf.gz
+# =============================================================================
+# .gitignore for Model-MPRA Benchmark Project
+# =============================================================================
 
-# Ignore all generated results, plots, and intermediate files
-Enformer/Scripts/
-# Ignore all log files
-Enformer/Pipeline/logs/
+# Archive folder (old project structures for review/deletion)
+Archive/
 
-# Ignore specific test data files that might be in script folders
-Enformer/Pipeline/Scripts/test.tsv
+# Large data files
+**/Data/Genome/
+*.fa
+*.fa.fai
+*.vcf
+*.vcf.gz
+*.vcf.gz.tbi
+*.tsv.gz
+
+# Model files
+*.h5
+*.hdf5
+*.pb
+
+# Pipeline outputs (regeneratable)
+**/results/
+**/logs/
+.snakemake/
+
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Keep configs and small reference files
+!**/Configs/*.yaml
+!**/targets_*.txt
+
+# =============================================================================
+# RESULTS & OUTPUT - Never commit generated results
+# =============================================================================
+
+# All results directories
+**/results/
+results/
+**/output/
+output/
+
+# Specific output files
+*_scores.csv
+*_predictions.csv
+merged_data.tsv
+correlation_results.csv
+sad.h5
+
+# Plots and figures
+**/plots/
+plots/
+*.png
+*.pdf
+*.jpg
+*.jpeg
+*.svg
+
+# =============================================================================
+# LOGS - Never commit log files
+# =============================================================================
+
+**/logs/
+logs/
+*.log
+*.out
+*.err
+
+# =============================================================================
+# SNAKEMAKE
+# =============================================================================
+
+**/.snakemake/
+.snakemake/
+*.snakemake.log
+test_run.log
+
+# =============================================================================
+# CONDA ENVIRONMENTS
+# =============================================================================
 
 # Virtual environments
-Enformer/.venv/
-Enformer/venv/
-Enformer/*.env/
-Enformer/Pipeline/.snakemake/
+**/.venv/
+**/venv/
+**/*.env/
+.venv/
+venv/
+env/
+ENV/
 
-# Local environment variable files (often contain secrets)
-Enformer/.env
+# Conda environment directories
+**/conda-env/
+conda-meta/
 
-# Python cache
-Enformer/__pycache__/
-Enformer/*.pyc
-Enformer/*.pyo
-Enformer/*.pyd
+# =============================================================================
+# PYTHON
+# =============================================================================
 
-# IDE / Editor configuration
-Enformer/.vscode/
-Enformer/.idea/
-Enformer/*.swp
-Enformer/*.swo
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*/.ipynb_checkpoints/*
+*.ipynb_checkpoints
+
+
+# =============================================================================
+# EDITOR / IDE
+# =============================================================================
+
+# VSCode
+.vscode/
+*.code-workspace
+
+# =============================================================================
+# TEMPORARY FILES
+# =============================================================================
+
+*.tmp
+*.temp
+*.bak
+*.backup
+*.old
+
+# =============================================================================
+# SECURITY - Never commit sensitive information
+# =============================================================================
+
+# Environment variables (may contain API keys, passwords)
+.env
+.env.local
+.env.*.local
+*.secret
+
+# SSH keys
+*.pem
+*.key
+id_rsa*
+id_dsa*
+
+# =============================================================================
+# KEEP THESE (explicitly track important files despite patterns above)
+# =============================================================================
+
+# Keep environment YAML files (they're small and important)
+!**/Configs/*.yaml
+!**/Configs/*.yml
+!environment.yml
+!environment.yaml
+
+# Keep README and documentation
+!README.md
+!**/README.md
+!QUICKSTART.md
+!*.md
+
+# Keep example/test data if it's small
+!**/test_data/*.vcf
+!**/examples/*.csv
