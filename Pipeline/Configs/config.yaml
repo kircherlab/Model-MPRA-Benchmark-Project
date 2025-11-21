@@ -44,23 +44,23 @@ basenji:
 # =============================================================================
 # ALPHAGENOME CONFIGURATION
 # =============================================================================
-alphagenome:
-  api_key: ""  # Replace with your actual AlphaGenome API key
-  organism: "human"  # "human" or "mouse"
-  sequence_length: "1MB"  # "2KB", "16KB", "100KB", "500KB", "1MB"
-  # Which modalities to score
-  modalities:
-    rna_seq: true
-    cage: true
-    procap: true
-    atac: true
-    dnase: true
-    chip_histone: true
-    chip_tf: true
-    polyadenylation: true
-    splice_sites: true
-    splice_site_usage: true
-    splice_junctions: true
+# alphagenome:
+#   api_key: ""  # Replace with your actual AlphaGenome API key
+#   organism: "human"  # "human" or "mouse"
+#   sequence_length: "1MB"  # "2KB", "16KB", "100KB", "500KB", "1MB"
+#   # Which modalities to score
+#   modalities:
+#     rna_seq: true
+#     cage: true
+#     procap: true
+#     atac: true
+#     dnase: true
+#     chip_histone: true
+#     chip_tf: true
+#     polyadenylation: true
+#     splice_sites: true
+#     splice_site_usage: true
+#     splice_junctions: true
 
 # =============================================================================
 # AGGREGATION FLAGS
