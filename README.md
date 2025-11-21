@@ -104,26 +104,26 @@ Variants are matched using `chrom:pos:ref:alt` keys:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│ STEP 1: Model Predictions (enformer_scores.csv)                │
+│ STEP 1: Model Predictions (enformer_scores.csv)                 │
 ├─────────────────────────────────────────────────────────────────┤
-│ chr1:100000:A:G  →  CAGE:liver=0.123, DNase:heart=-0.023, ...  │
-│ chr1:200000:C:T  →  CAGE:liver=-0.001, DNase:heart=0.034, ...  │
+│ chr1:100000:A:G  →  CAGE:liver=0.123, DNase:heart=-0.023, ...   │
+│ chr1:200000:C:T  →  CAGE:liver=-0.001, DNase:heart=0.034, ...   │
 └─────────────────────────────────────────────────────────────────┘
                                 +
 ┌─────────────────────────────────────────────────────────────────┐
-│ STEP 2: MPRA Experimental Data (VCF INFO field)                │
+│ STEP 2: MPRA Experimental Data (VCF INFO field)                 │
 ├─────────────────────────────────────────────────────────────────┤
-│ chr1:100000:A:G  →  mpra_log2FC=1.23, mpra_pvalue=0.001        │
-│ chr1:200000:C:T  →  mpra_log2FC=-0.45, mpra_pvalue=0.05        │
+│ chr1:100000:A:G  →  mpra_log2FC=1.23, mpra_pvalue=0.001         │
+│ chr1:200000:C:T  →  mpra_log2FC=-0.45, mpra_pvalue=0.05         │
 └─────────────────────────────────────────────────────────────────┘
                                 ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│ STEP 3: Join on Variant Key & Compute Aggregations             │
+│ STEP 3: Join on Variant Key & Compute Aggregations              │
 ├─────────────────────────────────────────────────────────────────┤
-│ chr1:100000:A:G  →  mpra_log2FC=1.23                           │
-│                  →  SAD_GLOBAL_MEAN=0.050 (mean of all tracks) │
+│ chr1:100000:A:G  →  mpra_log2FC=1.23                            │
+│                  →  SAD_GLOBAL_MEAN=0.050 (mean of all tracks)  │
 │                  →  SAD_BIOSAMPLE_liver=0.123                   │
-│                  →  SAD_ASSAY_CAGE=0.123, SAD_ASSAY_DNase=-0.02│
+│                  →  SAD_ASSAY_CAGE=0.123, SAD_ASSAY_DNase=-0.02 │
 │                  →  Individual tracks: CAGE:liver, DNase:heart..│
 └─────────────────────────────────────────────────────────────────┘
 ```
