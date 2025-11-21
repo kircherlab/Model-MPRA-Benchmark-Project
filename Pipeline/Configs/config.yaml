@@ -5,8 +5,9 @@
 # MODELS TO RUN
 # =============================================================================
 models:
-  enformer: true
+  enformer: false
   basenji: true  # Set to true when ready to run Basenji
+  alphagenome: false  # Set to true when ready to run AlphaGenome
 
 # =============================================================================
 # SHARED DATA PATHS
@@ -14,7 +15,7 @@ models:
 
 # Input VCF containing variants of interest
 vcf: "Data/VCF/IGVFFI4134MFLL.vcf.gz"
-  #  "Data/VCF/IGVFFI4378PZYI.vcf.gz"
+# vcf: "Data/VCF/IGVFFI4378PZYI.vcf.gz"
 
 # Reference genome and Enformer targets file
 fasta: "Data/Genome/hg38.fa"
@@ -26,10 +27,8 @@ mpra_data: "Data/MPRA/HEK293T_reporter_variants.tsv.gz"
 
 cell_line: "HepG2"
 cell_line_column_name: "HepG2"
-  #  "Model_MPRA_Benchmark/Enformer/Pipeline/Data/MPRA/HEK293T_reporter_variants.tsv.gz"
 
-# Enformer Variables
-max_variants: "10"  # Maximum number of variants to process (for testing purposes)
+max_variants: "100"  # Maximum number of variants to process (for testing purposes)
 
 # =============================================================================
 # BASENJI CONFIGURATION
@@ -41,6 +40,27 @@ basenji:
   targets: "Models/Basenji/basenji/manuscripts/cross2020/targets_human.txt"
   rc: true
   shifts: "0"
+
+# =============================================================================
+# ALPHAGENOME CONFIGURATION
+# =============================================================================
+alphagenome:
+  api_key: "AIzaSyBe6ZgaSKTn8IVTAYFbyYHY8mHGvYcekZU"  # Replace with your actual AlphaGenome API key
+  organism: "human"  # "human" or "mouse"
+  sequence_length: "1MB"  # "2KB", "16KB", "100KB", "500KB", "1MB"
+  # Which modalities to score
+  modalities:
+    rna_seq: true
+    cage: true
+    procap: true
+    atac: true
+    dnase: true
+    chip_histone: true
+    chip_tf: true
+    polyadenylation: true
+    splice_sites: true
+    splice_site_usage: true
+    splice_junctions: true
 
 # =============================================================================
 # AGGREGATION FLAGS
@@ -62,3 +82,35 @@ agg_per_assay_min: false
 # Set to null to disable, or provide numeric values.
 exclude_min:  "None"
 exclude_max:  "None"
+
+# =============================================================================
+# SIGNIFICANCE THRESHOLDS FOR VISUALIZATION
+# =============================================================================
+# Define thresholds for marking variants as significant in plots
+# PVAL and QVAL are -log10 transformed values from VCF
+# Higher values = more significant
+significance:
+  use_significance_coloring: true  # Enable/disable significance-based coloring in plots
+  
+  # Which statistic to use for significance determination
+  # Options: "PVAL" (p-value), "QVAL" (FDR-corrected q-value), "both" (require both)
+  statistic: "QVAL"
+  
+  # Threshold for significance (in -log10 scale)
+  # Common values:
+  #   1.3 = p/q < 0.05 (-log10(0.05) ≈ 1.3)
+  #   2.0 = p/q < 0.01 (-log10(0.01) = 2.0)
+  #   3.0 = p/q < 0.001 (-log10(0.001) = 3.0)
+  threshold: 1.3  # Default: FDR < 0.05
+  
+  # Optional: additional threshold for stricter significance
+  # Only used if statistic is "both"
+  pval_threshold: 1.3  # -log10(0.05)
+  qval_threshold: 1.3  # -log10(0.05)
+  
+  # Plotting colors
+  colors:
+    significant: "#E74C3C"      # Red for significant variants
+    nonsignificant: "#95A5A6"   # Gray for non-significant variants
+    significant_alpha: 0.7      # Opacity for significant points
+    nonsignificant_alpha: 0.3   # Opacity for non-significant points

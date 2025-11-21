@@ -13,7 +13,9 @@ def get_all_outputs():
         outputs.extend([
             f"results/{model}/{model}_scores.csv",
             f"results/{model}/merged_data.tsv",
-            f"results/{model}/plots/correlation.png"
+            f"results/{model}/plots/correlation.png",
+            f"results/{model}/plots/roc_performance_analysis.png",
+            f"results/{model}/plots/performance_metrics.csv"
         ])
     return outputs
 
@@ -114,7 +116,9 @@ rule generate_plots_enformer:
     input:
         merged_data="results/enformer/merged_data.tsv"
     output:
-        corr_plot="results/enformer/plots/correlation.png"
+        corr_plot="results/enformer/plots/correlation.png",
+        roc_plot="results/enformer/plots/roc_performance_analysis.png",
+        metrics_csv="results/enformer/plots/performance_metrics.csv"
     params:
         exclude_min=config.get("exclude_min", None),
         exclude_max=config.get("exclude_max", None)
@@ -196,7 +200,9 @@ rule generate_plots_basenji:
     input:
         merged_data="results/basenji/merged_data.tsv"
     output:
-        corr_plot="results/basenji/plots/correlation.png"
+        corr_plot="results/basenji/plots/correlation.png",
+        roc_plot="results/basenji/plots/roc_performance_analysis.png",
+        metrics_csv="results/basenji/plots/performance_metrics.csv"
     params:
         exclude_min=config.get("exclude_min", None),
         exclude_max=config.get("exclude_max", None)
@@ -214,3 +220,50 @@ rule generate_plots_basenji:
             --out_corr {output.corr_plot} \
             $EXCLUDE_ARG
         """
+
+# =============================================================================
+# ALPHAGENOME RULES
+# =============================================================================
+
+# rule run_alphagenome:
+#     input:
+#         script="Scripts/alphagenome_wrapper.py",
+#         vcf="Data/VCF/filtered_variants.vcf.gz"
+#     params:
+#         api_key=config["alphagenome"]["api_key"],
+#         organism=config["alphagenome"]["organism"],
+#         sequence_length=config["alphagenome"]["sequence_length"],
+#         modalities=config["alphagenome"]["modalities"]
+#     output:
+#         "results/alphagenome/alphagenome_scores.csv"
+#     log:
+#         "logs/alphagenome/alphagenome.log"
+#     conda:
+#         "Configs/alphagenome-env.yaml"
+#     shell:
+#         """
+#         mkdir -p results/alphagenome logs/alphagenome
+#         # Convert modalities dict to command line arguments
+#         MODALITIES=""
+#         if [ "{params.modalities[rna_seq]}" = "True" ]; then MODALITIES="$MODALITIES rna_seq"; fi
+#         if [ "{params.modalities[cage]}" = "True" ]; then MODALITIES="$MODALITIES cage"; fi
+#         if [ "{params.modalities[procap]}" = "True" ]; then MODALITIES="$MODALITIES procap"; fi
+#         if [ "{params.modalities[atac]}" = "True" ]; then MODALITIES="$MODALITIES atac"; fi
+#         if [ "{params.modalities[dnase]}" = "True" ]; then MODALITIES="$MODALITIES dnase"; fi
+#         if [ "{params.modalities[chip_histone]}" = "True" ]; then MODALITIES="$MODALITIES chip_histone"; fi
+#         if [ "{params.modalities[chip_tf]}" = "True" ]; then MODALITIES="$MODALITIES chip_tf"; fi
+#         if [ "{params.modalities[polyadenylation]}" = "True" ]; then MODALITIES="$MODALITIES polyadenylation"; fi
+#         if [ "{params.modalities[splice_sites]}" = "True" ]; then MODALITIES="$MODALITIES splice_sites"; fi
+#         if [ "{params.modalities[splice_site_usage]}" = "True" ]; then MODALITIES="$MODALITIES splice_site_usage"; fi
+#         if [ "{params.modalities[splice_junctions]}" = "True" ]; then MODALITIES="$MODALITIES splice_junctions"; fi
+
+#         python {input.script} \
+#             --vcf {input.vcf} \
+#             --api_key {params.api_key} \
+#             --organism {params.organism} \
+#             --sequence_length {params.sequence_length} \
+#             --modalities $MODALITIES \
+#             --out_csv {output} \
+#             2>&1 | tee {log}
+#         """
+

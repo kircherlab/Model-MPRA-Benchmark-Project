@@ -1,67 +1,126 @@
-# ###################### #
-#  Project Specific Files
-# ###################### #
-
 # =============================================================================
 # .gitignore for Model-MPRA Benchmark Project
 # =============================================================================
+# Last updated: 2025-11-21
+# Purpose: Exclude large data, generated outputs, and temporary files from git
 
-# Archive folder (old project structures for review/deletion)
+# =============================================================================
+# PROJECT STRUCTURE - Excluded Directories
+# =============================================================================
+
+# Archive folder (old project versions, not needed in git)
 Archive/
 
-# Large data files
+# Generated output directories (recreatable by pipeline)
+**/results/
+**/output/
+**/figures/
+
+# Log directories
+**/logs/
+
+# Snakemake working directories
+**/.snakemake/
+.snakemake/
+
+# =============================================================================
+# DATA FILES - Large or Generated
+# =============================================================================
+
+# Reference genome files (too large for git)
 **/Data/Genome/
 *.fa
 *.fa.fai
+*.fasta
+*.fasta.fai
+*.2bit
+
+# VCF files (can be large)
 *.vcf
 *.vcf.gz
 *.vcf.gz.tbi
-*.tsv.gz
+*.vcf.idx
+*.bcf
 
-# Model files
+# Compressed data files
+*.tsv.gz
+*.csv.gz
+*.txt.gz
+
+# Large binary data
+*.bam
+*.bam.bai
+*.bed.gz
+*.bigWig
+*.bw
+*.bigBed
+*.bb
+
+# =============================================================================
+# MODEL FILES - Large Pre-trained Models
+# =============================================================================
+
+# TensorFlow/Keras models
 *.h5
 *.hdf5
 *.pb
+*.ckpt
+*.ckpt.*
+*.keras
 
-# Pipeline outputs (regeneratable)
-**/results/
-**/logs/
-.snakemake/
+# PyTorch models
+*.pt
+*.pth
+*.bin
 
-# Python
-__pycache__/
-*.pyc
-.ipynb_checkpoints/
+# ONNX models
+*.onnx
 
-# Keep configs and small reference files
-!**/Configs/*.yaml
-!**/targets_*.txt
+# Model checkpoints
+checkpoint
+model.ckpt*
 
 # =============================================================================
-# RESULTS & OUTPUT - Never commit generated results
+# PIPELINE OUTPUTS - Generated Results
 # =============================================================================
 
-# All results directories
-**/results/
-results/
-**/output/
-output/
-
-# Specific output files
+# Score files
 *_scores.csv
 *_predictions.csv
-merged_data.tsv
-correlation_results.csv
-sad.h5
+*_results.csv
+enformer_scores.csv
+basenji_scores.csv
+alphagenome_scores.csv
 
-# Plots and figures
+# Merged data
+merged_data.tsv
+merged_data.csv
+
+# Analysis outputs
+correlation_results.csv
+performance_metrics.csv
+roc_analysis.csv
+
+# HDF5 outputs
+sad.h5
+predictions.h5
+*.hdf5
+
+# =============================================================================
+# PLOTS & VISUALIZATIONS - Generated Figures
+# =============================================================================
+
 **/plots/
 plots/
+**/figures/
+figures/
 *.png
 *.pdf
 *.jpg
 *.jpeg
 *.svg
+*.eps
+*.tiff
 
 # =============================================================================
 # LOGS - Never commit log files
@@ -72,41 +131,26 @@ logs/
 *.log
 *.out
 *.err
+nohup.out
+*.log.*
 
-# =============================================================================
-# SNAKEMAKE
-# =============================================================================
-
-**/.snakemake/
-.snakemake/
+# Snakemake logs
 *.snakemake.log
 test_run.log
-
-# =============================================================================
-# CONDA ENVIRONMENTS
-# =============================================================================
-
-# Virtual environments
-**/.venv/
-**/venv/
-**/*.env/
-.venv/
-venv/
-env/
-ENV/
-
-# Conda environment directories
-**/conda-env/
-conda-meta/
+benchmark.txt
 
 # =============================================================================
 # PYTHON
 # =============================================================================
 
-# Byte-compiled / optimized / DLL files
+# Byte-compiled / optimized files
 __pycache__/
 *.py[cod]
 *$py.class
+*.pyc
+*.pyo
+
+# C extensions
 *.so
 
 # Distribution / packaging
@@ -117,32 +161,109 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Installer logs
+*.log
+
+# Unit test / coverage
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
 
 # Jupyter Notebook
 .ipynb_checkpoints
 */.ipynb_checkpoints/*
-*.ipynb_checkpoints
+*.ipynb_checkpoints/
 
+# pyenv
+.python-version
 
 # =============================================================================
-# EDITOR / IDE
+# CONDA & VIRTUAL ENVIRONMENTS
+# =============================================================================
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+**/.venv/
+**/venv/
+
+# Conda environments
+**/conda-env/
+**/conda-meta/
+conda-meta/
+**/envs/
+
+# Conda package cache
+**/pkgs/
+
+# =============================================================================
+# EDITORS & IDEs
 # =============================================================================
 
 # VSCode
 .vscode/
 *.code-workspace
+.history/
+
+# PyCharm
+.idea/
+*.iml
+
+# Jupyter
+.jupyter/
+
+# Emacs
+*~
+\#*\#
+.\#*
+
+# Vim
+*.swp
+*.swo
+*.swn
+.*.sw?
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
 
 # =============================================================================
-# TEMPORARY FILES
+# OPERATING SYSTEM
+# =============================================================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Linux
+*~
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# =============================================================================
+# TEMPORARY & BACKUP FILES
 # =============================================================================
 
 *.tmp
@@ -150,39 +271,63 @@ wheels/
 *.bak
 *.backup
 *.old
+*.orig
+*~
+.~*
 
 # =============================================================================
-# SECURITY - Never commit sensitive information
+# SECURITY - Never commit sensitive data
 # =============================================================================
 
-# Environment variables (may contain API keys, passwords)
+# Environment variables (may contain API keys)
 .env
 .env.local
 .env.*.local
+.env.production.local
 *.secret
+secrets.yaml
+secrets.yml
 
-# SSH keys
+# SSH/GPG keys
 *.pem
 *.key
 id_rsa*
 id_dsa*
+*.pub
+*.gpg
+
+# API keys / credentials
+credentials.json
+token.json
+*.credentials
 
 # =============================================================================
-# KEEP THESE (explicitly track important files despite patterns above)
+# KEEP THESE - Explicitly track despite patterns
 # =============================================================================
 
-# Keep environment YAML files (they're small and important)
+# Configuration files (small, important)
 !**/Configs/*.yaml
 !**/Configs/*.yml
 !environment.yml
 !environment.yaml
+!**/Env/*.yaml
+!**/Env/*.yml
 
-# Keep README and documentation
+# Target/reference files (small, essential)
+!**/targets_*.txt
+!**/Targets/*.txt
+
+# Documentation
 !README.md
 !**/README.md
-!QUICKSTART.md
 !*.md
+!**/Docs/*.md
 
-# Keep example/test data if it's small
+# Example/test data (if small)
 !**/test_data/*.vcf
 !**/examples/*.csv
+!**/examples/*.tsv
+
+# Keep small MPRA data files if they're references
+!**/MPRA/*.tsv
+!**/MPRA/*.csv

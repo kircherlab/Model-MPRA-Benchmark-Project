@@ -13,3 +13,5 @@ dependencies:
   - scikit-learn
   - scipy
   - openpyxl
+  - pyyaml
+  - yaml

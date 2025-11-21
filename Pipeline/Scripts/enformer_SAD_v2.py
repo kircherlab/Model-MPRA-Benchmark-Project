@@ -119,9 +119,12 @@ class FastaStringExtractor:
         _log('FASTA closed.')
 
 # ---------------- VCF (SNVs only) ----------------
-def variant_generator_only_snvs(vcf_path, gzipped=True):
+def variant_generator_only_snvs(vcf_path, gzipped=True, max_variants=None):
     _log(f'Reading VCF (SNVs only): {vcf_path}')
+    if max_variants:
+        _log(f'Will stop after {max_variants} valid SNVs')
     _open = (lambda p: gzip.open(p, 'rt')) if gzipped else (lambda p: open(p))
+    count = 0
     with _open(vcf_path) as f:
         for line in f:
             if line.startswith('#'): continue
@@ -133,10 +136,14 @@ def variant_generator_only_snvs(vcf_path, gzipped=True):
                 alt = alt.upper()
                 if len(ref)==1 and len(alt)==1 and (ref in VALID_A) and (alt in VALID_A):
                     yield kipoiseq.dataclasses.Variant(chrom=chrom, pos=pos, ref=ref, alt=alt, id=vid)
+                    count += 1
+                    if max_variants and count >= max_variants:
+                        _log(f'Reached max_variants limit ({max_variants}). Stopping VCF read.')
+                        return
 
-def variant_centered_inputs(vcf_path, seq_len, fasta_extractor, gzipped=True):
+def variant_centered_inputs(vcf_path, seq_len, fasta_extractor, gzipped=True, max_variants=None):
     vseq = kipoiseq.extractors.VariantSeqExtractor(reference_sequence=fasta_extractor)
-    for var in variant_generator_only_snvs(vcf_path, gzipped=gzipped):
+    for var in variant_generator_only_snvs(vcf_path, gzipped=gzipped, max_variants=max_variants):
         chrom = fasta_extractor.norm_chrom(var.chrom)
         iv = Interval(chrom, var.pos, var.pos).resize(seq_len)
         center = iv.center() - iv.start
@@ -203,9 +210,7 @@ fasta = FastaStringExtractor(FASTA_FILE)
 rows, n_done = [], 0
 last_tick = time.time()
 _log('Scoring variants...')
-for ex in variant_centered_inputs(VCF_FILE, SEQUENCE_LENGTH, fasta, gzipped=True):
-    if MAX_VARIANTS is not None and n_done >= MAX_VARIANTS: 
-        break
+for ex in variant_centered_inputs(VCF_FILE, SEQUENCE_LENGTH, fasta, gzipped=True, max_variants=MAX_VARIANTS):
     try:
         scores = model.predict_on_batch({k: v[tf.newaxis] for k, v in ex['inputs'].items()})[0]  # [T]
     except Exception as e:
