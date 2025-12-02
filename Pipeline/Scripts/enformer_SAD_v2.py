@@ -20,6 +20,8 @@ parser.add_argument('--out', help='Output CSV path', required=True)
 # --- MODIFIED: Changed default to 'all' which is more sensible for a pipeline ---
 parser.add_argument('--max_variants', help="Integer N or 'all' (default: all)", default='all')
 parser.add_argument('--print_every', type=int, default=50, help='Progress print frequency (variants)')
+parser.add_argument('--aggregation', choices=['mean', 'sum'], default='mean', 
+                    help='Method to collapse spatial dimension: mean or sum (default: mean)')
 
 
 
@@ -164,12 +166,21 @@ class Enformer:
         return {k: v.numpy() for k, v in out.items()}
 
 class EnformerScoreVariantsRaw:
-    def __init__(self, tfhub_url, organism='human'):
-        self._m = Enformer(tfhub_url); self._org = organism
+    def __init__(self, tfhub_url, organism='human', aggregation='mean'):
+        self._m = Enformer(tfhub_url)
+        self._org = organism
+        self._aggregation = aggregation
+    
     def predict_on_batch(self, inputs):
         ref = self._m.predict_on_batch(inputs['ref'])[self._org]  # [B, L, T]
         alt = self._m.predict_on_batch(inputs['alt'])[self._org]  # [B, L, T]
-        return alt.mean(axis=1) - ref.mean(axis=1)                # [B, T]
+        
+        if self._aggregation == 'mean':
+            return alt.mean(axis=1) - ref.mean(axis=1)            # [B, T]
+        elif self._aggregation == 'sum':
+            return alt.sum(axis=1) - ref.sum(axis=1)              # [B, T]
+        else:
+            raise ValueError(f"Unknown aggregation method: {self._aggregation}")
 
 # ---------------- Targets & groupings ----------------
 _log('Loading targets...')
@@ -204,7 +215,8 @@ for i, (a, b) in enumerate(zip(assays, biosamples)):
 _log(f'Unique assays: {len(assay_to_idx)} | Unique biosamples: {len(biosample_to_idx)}')
 
 # ---------------- Run scoring ----------------
-model = EnformerScoreVariantsRaw(MODEL_PATH, organism='human')
+_log(f'Using aggregation method: {args.aggregation}')
+model = EnformerScoreVariantsRaw(MODEL_PATH, organism='human', aggregation=args.aggregation)
 fasta = FastaStringExtractor(FASTA_FILE)
 
 rows, n_done = [], 0

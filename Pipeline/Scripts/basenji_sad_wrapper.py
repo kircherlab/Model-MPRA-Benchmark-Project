@@ -25,6 +25,8 @@ def main():
     parser.add_argument('--basenji_script', required=True, help='Path to basenji_sad.py')
     parser.add_argument('--rc', action='store_true', help='Average forward and reverse complement')
     parser.add_argument('--shifts', default='0', help='Ensemble prediction shifts')
+    parser.add_argument('--aggregation', choices=['mean', 'sum'], default='sum',
+                        help='Method to collapse spatial dimension: mean or sum (default: sum)')
     
     args = parser.parse_args()
     
@@ -59,6 +61,7 @@ def main():
     cmd.extend([args.params, args.model, args.vcf])
     
     print(f"Running Basenji SAD: {' '.join(cmd)}", flush=True)
+    print(f"Using aggregation method: {args.aggregation}", flush=True)
     
     # Run basenji_sad.py
     result = subprocess.run(cmd, check=True)
@@ -68,15 +71,16 @@ def main():
     h5_file = os.path.join(args.out_dir, 'sad.h5')
     
     if os.path.exists(h5_file):
-        convert_h5_to_csv(h5_file, args.out_csv, args.targets)
+        convert_h5_to_csv(h5_file, args.out_csv, args.targets, args.aggregation)
         print(f"SAD scores saved to {args.out_csv}", flush=True)
     else:
         print(f"ERROR: Expected output file {h5_file} not found!", file=sys.stderr)
         sys.exit(1)
 
-def convert_h5_to_csv(h5_file, out_csv, targets_file=None):
+def convert_h5_to_csv(h5_file, out_csv, targets_file=None, aggregation='sum'):
     """
     Convert Basenji HDF5 output to CSV format matching Enformer's output structure.
+    Applies aggregation transformation if needed to match desired method.
     """
     with h5py.File(h5_file, 'r') as f:
         # Extract variant information
@@ -93,6 +97,14 @@ def convert_h5_to_csv(h5_file, out_csv, targets_file=None):
         
         # Extract SAD scores
         sad_scores = f['SAD'][:]  # Shape: (n_variants, n_targets)
+        
+        # Basenji's SAD is computed as sum by default
+        # If mean is requested, divide by sequence length (896 bins for Basenji)
+        if aggregation == 'mean':
+            # Basenji has 896 prediction bins
+            seq_length = 896
+            sad_scores = sad_scores / seq_length
+            print(f"Converting SAD from sum to mean (dividing by {seq_length})", flush=True)
     
     # Load target descriptions from targets file if provided
     if targets_file and os.path.exists(targets_file):

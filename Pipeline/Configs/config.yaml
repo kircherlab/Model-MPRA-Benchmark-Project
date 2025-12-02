@@ -5,9 +5,15 @@
 # MODELS TO RUN
 # =============================================================================
 models:
-  enformer: false
-  basenji: true  # Set to true when ready to run Basenji
-  alphagenome: false  # Set to true when ready to run AlphaGenome
+  enformer:
+    enabled: false
+    aggregation_method: "mean"  # "mean" or "sum" - how to collapse spatial dimension for SAD
+  basenji:
+    enabled: true
+    aggregation_method: "mean"  # "mean" or "sum" - how to collapse spatial dimension for SAD
+  alphagenome:
+    enabled: false
+    aggregation_method: "mean"  # "mean" or "sum" - how to collapse spatial dimension for SAD
 
 # =============================================================================
 # SHARED DATA PATHS

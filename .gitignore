@@ -1,333 +1,36 @@
-# =============================================================================
-# .gitignore for Model-MPRA Benchmark Project
-# =============================================================================
-# Last updated: 2025-11-21
-# Purpose: Exclude large data, generated outputs, and temporary files from git
-
-# =============================================================================
-# PROJECT STRUCTURE - Excluded Directories
-# =============================================================================
-
-# Archive folder (old project versions, not needed in git)
+# Archive folder
 Archive/
 
-# Generated output directories (recreatable by pipeline)
-**/results/
-**/output/
-**/figures/
+# Testing folder musti only
+Testing/
+# Logs
+logs/
+*.log
+*.out
+*.err
 
-# Log directories
-**/logs/
-
-# Snakemake working directories
-**/.snakemake/
+# Snakemake stuff
 .snakemake/
 
-# =============================================================================
-# DATA FILES - Large or Generated
-# =============================================================================
+# Results folder
+results/
 
-# Reference genome files (too large for git)
-**/Data/Genome/
+# Big data files - genomes, indices
 *.fa
 *.fa.fai
 *.fasta
 *.fasta.fai
 *.2bit
 
-# VCF files (can be large)
-*.vcf
-*.vcf.gz
-*.vcf.gz.tbi
-*.vcf.idx
-*.bcf
-
-# Compressed data files
-*.tsv.gz
-*.csv.gz
-*.txt.gz
-
-# Large binary data
-*.bam
-*.bam.bai
-*.bed.gz
-*.bigWig
-*.bw
-*.bigBed
-*.bb
-
-# =============================================================================
-# MODEL FILES - Large Pre-trained Models
-# =============================================================================
-
-# TensorFlow/Keras models
+# Big data files - models
 *.h5
 *.hdf5
-*.pb
-*.ckpt
-*.ckpt.*
-*.keras
-
-# PyTorch models
 *.pt
 *.pth
 *.bin
+*.pb
+*.ckpt
 
-# ONNX models
-*.onnx
-
-# Model checkpoints
-checkpoint
-model.ckpt*
-
-# =============================================================================
-# PIPELINE OUTPUTS - Generated Results
-# =============================================================================
-
-# Score files
-*_scores.csv
-*_predictions.csv
-*_results.csv
-enformer_scores.csv
-basenji_scores.csv
-alphagenome_scores.csv
-
-# Merged data
-merged_data.tsv
-merged_data.csv
-
-# Analysis outputs
-correlation_results.csv
-performance_metrics.csv
-roc_analysis.csv
-
-# HDF5 outputs
-sad.h5
-predictions.h5
-*.hdf5
-
-# =============================================================================
-# PLOTS & VISUALIZATIONS - Generated Figures
-# =============================================================================
-
-**/plots/
-plots/
-**/figures/
-figures/
-*.png
-*.pdf
-*.jpg
-*.jpeg
-*.svg
-*.eps
-*.tiff
-
-# =============================================================================
-# LOGS - Never commit log files
-# =============================================================================
-
-**/logs/
-logs/
-*.log
-*.out
-*.err
-nohup.out
-*.log.*
-
-# Snakemake logs
-*.snakemake.log
-test_run.log
-benchmark.txt
-
-# =============================================================================
-# PYTHON
-# =============================================================================
-
-# Byte-compiled / optimized files
+# Python
 __pycache__/
-*.py[cod]
-*$py.class
 *.pyc
-*.pyo
-
-# C extensions
-*.so
-
-# Distribution / packaging
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-pip-log.txt
-pip-delete-this-directory.txt
-
-# Installer logs
-*.log
-
-# Unit test / coverage
-htmlcov/
-.tox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-.hypothesis/
-.pytest_cache/
-
-# Jupyter Notebook
-.ipynb_checkpoints
-*/.ipynb_checkpoints/*
-*.ipynb_checkpoints/
-
-# pyenv
-.python-version
-
-# =============================================================================
-# CONDA & VIRTUAL ENVIRONMENTS
-# =============================================================================
-
-# Virtual environments
-.venv/
-venv/
-env/
-ENV/
-**/.venv/
-**/venv/
-
-# Conda environments
-**/conda-env/
-**/conda-meta/
-conda-meta/
-**/envs/
-
-# Conda package cache
-**/pkgs/
-
-# =============================================================================
-# EDITORS & IDEs
-# =============================================================================
-
-# VSCode
-.vscode/
-*.code-workspace
-.history/
-
-# PyCharm
-.idea/
-*.iml
-
-# Jupyter
-.jupyter/
-
-# Emacs
-*~
-\#*\#
-.\#*
-
-# Vim
-*.swp
-*.swo
-*.swn
-.*.sw?
-
-# Sublime Text
-*.sublime-project
-*.sublime-workspace
-
-# =============================================================================
-# OPERATING SYSTEM
-# =============================================================================
-
-# macOS
-.DS_Store
-.AppleDouble
-.LSOverride
-._*
-
-# Linux
-*~
-
-# Windows
-Thumbs.db
-ehthumbs.db
-Desktop.ini
-$RECYCLE.BIN/
-
-# =============================================================================
-# TEMPORARY & BACKUP FILES
-# =============================================================================
-
-*.tmp
-*.temp
-*.bak
-*.backup
-*.old
-*.orig
-*~
-.~*
-
-# =============================================================================
-# SECURITY - Never commit sensitive data
-# =============================================================================
-
-# Environment variables (may contain API keys)
-.env
-.env.local
-.env.*.local
-.env.production.local
-*.secret
-secrets.yaml
-secrets.yml
-
-# SSH/GPG keys
-*.pem
-*.key
-id_rsa*
-id_dsa*
-*.pub
-*.gpg
-
-# API keys / credentials
-credentials.json
-token.json
-*.credentials
-
-# =============================================================================
-# KEEP THESE - Explicitly track despite patterns
-# =============================================================================
-
-# Configuration files (small, important)
-!**/Configs/*.yaml
-!**/Configs/*.yml
-!environment.yml
-!environment.yaml
-!**/Env/*.yaml
-!**/Env/*.yml
-
-# Target/reference files (small, essential)
-!**/targets_*.txt
-!**/Targets/*.txt
-
-# Documentation
-!README.md
-!**/README.md
-!*.md
-!**/Docs/*.md
-
-# Example/test data (if small)
-!**/test_data/*.vcf
-!**/examples/*.csv
-!**/examples/*.tsv
-
-# Keep small MPRA data files if they're references
-!**/MPRA/*.tsv
-!**/MPRA/*.csv

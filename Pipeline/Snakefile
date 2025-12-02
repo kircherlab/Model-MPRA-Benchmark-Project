@@ -3,8 +3,9 @@
 
 configfile: "Configs/config.yaml"
 
-# Determine which models to run
-MODELS_TO_RUN = [model for model, enabled in config.get("models", {}).items() if enabled]
+# Determine which models to run (now checking nested 'enabled' key)
+MODELS_TO_RUN = [model for model, settings in config.get("models", {}).items() 
+                 if isinstance(settings, dict) and settings.get("enabled", False)]
 
 # Define all final outputs based on which models are enabled
 def get_all_outputs():
@@ -76,6 +77,8 @@ rule run_enformer:
         targets=config["targets"]
     output:
         "results/enformer/enformer_scores.csv"
+    params:
+        aggregation=config["models"]["enformer"].get("aggregation_method", "mean")
     log:
         "logs/enformer/enformer.log"
     conda:
@@ -83,11 +86,14 @@ rule run_enformer:
     shell:
         """
         mkdir -p results/enformer logs/enformer
+        # Set LD_LIBRARY_PATH to help TensorFlow find CUDA libraries
+        export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:${{LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}}
         python {input.script} \
             --vcf {input.vcf} \
             --fasta {input.fasta} \
             --targets {input.targets} \
             --out {output} \
+            --aggregation {params.aggregation} \
             --print_every 50 2>&1 | tee {log}
         """
 
@@ -111,6 +117,10 @@ rule merge_data_enformer:
         "Configs/analysis-env.yaml"
     script:
         "Scripts/merge_data.py"
+
+# =============================================================================
+# Plotting and Analysis for Enformer
+# =============================================================================
 
 rule generate_plots_enformer:
     input:
@@ -141,18 +151,33 @@ rule generate_plots_enformer:
 # BASENJI RULES
 # =============================================================================
 
+# Helper function to add Enformer dependency only if both models are enabled
+# I had a problem with GPU assignment when both models ran simultaneously
+# To avoid that, we make Basenji depend on Enformer completion if both are enabled
+
+
+def get_basenji_inputs(wildcards):
+    inputs = {
+        "script": "Scripts/basenji_sad_wrapper.py",
+        "vcf": "Data/VCF/filtered_variants.vcf.gz",
+        "fasta": config["fasta"],
+        "params": config["basenji"]["params"],
+        "model": config["basenji"]["model"],
+        "basenji_script": config["basenji"]["script"]
+    }
+    # Add Enformer dependency only if both Enformer and Basenji are enabled
+    if "enformer" in MODELS_TO_RUN and "basenji" in MODELS_TO_RUN:
+        inputs["enformer_done"] = "results/enformer/enformer_scores.csv"
+    return inputs
+
 rule run_basenji:
     input:
-        script="Scripts/basenji_sad_wrapper.py",
-        vcf="Data/VCF/filtered_variants.vcf.gz",
-        fasta=config["fasta"],
-        params=config["basenji"]["params"],
-        model=config["basenji"]["model"],
-        basenji_script=config["basenji"]["script"]
+        unpack(get_basenji_inputs)
     params:
         targets=config["basenji"]["targets"],
         rc="--rc" if config["basenji"].get("rc", False) else "",
-        shifts=config["basenji"].get("shifts", "0")
+        shifts=config["basenji"].get("shifts", "0"),
+        aggregation=config["models"]["basenji"].get("aggregation_method", "sum")
     output:
         "results/basenji/basenji_scores.csv"
     log:
@@ -162,6 +187,8 @@ rule run_basenji:
     shell:
         """
         mkdir -p results/basenji logs/basenji
+        # Set LD_LIBRARY_PATH to help TensorFlow find CUDA libraries
+        export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:${{LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}}
         python {input.script} \
             --vcf {input.vcf} \
             --fasta {input.fasta} \
@@ -172,8 +199,14 @@ rule run_basenji:
             --out_dir results/basenji/basenji_sad_output \
             --out_csv {output} \
             --shifts {params.shifts} \
+            --aggregation {params.aggregation} \
             {params.rc} 2>&1 | tee {log}
         """
+
+
+# =============================================================================
+# Plotting and Analysis for Basenji
+# =============================================================================
 
 rule merge_data_basenji:
     input:
