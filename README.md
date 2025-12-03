@@ -35,6 +35,31 @@ snakemake --cores 8 --use-conda
 snakemake --delete-all-output
 ```
 
+## Data Requirements
+
+### Reference Genome
+
+The pipeline requires the human reference genome (hg38) and its index file:
+
+**Required files:**
+- `Pipeline/Data/Genome/hg38.fa` - Reference genome FASTA
+- `Pipeline/Data/Genome/hg38.fa.fai` - FASTA index (created automatically)
+
+**Download and setup:**
+```bash
+# Navigate to the data directory
+cd Pipeline/Data/Genome
+
+# Download hg38 reference genome
+wget https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/hg38.fa.gz
+gunzip hg38.fa.gz
+
+# Create FASTA index (required for fast random access)
+samtools faidx hg38.fa
+```
+
+If you already have the hg38 fasta and index file (they need to be in the same directory), update the `fasta` path in `Configs/config.yaml`. 
+
 ## Configuration
 
 Edit `Pipeline/Configs/config.yaml`:
@@ -206,5 +231,6 @@ python publication_plots.py --merged_data ../Pipeline/results/enformer/merged_da
 - Conda/Mamba
 - Python 3.9+
 - TensorFlow 2.x
+- samtools (for FASTA indexing)
 
 All dependencies managed through conda environments in `Pipeline/Configs/`.
