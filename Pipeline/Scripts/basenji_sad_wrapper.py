@@ -52,6 +52,7 @@ def main():
         '-f', args.fasta,
         '-o', args.out_dir,
         '--shifts', args.shifts,
+        '--aggregation', args.aggregation,
     ]
     
     if args.rc:
@@ -71,16 +72,16 @@ def main():
     h5_file = os.path.join(args.out_dir, 'sad.h5')
     
     if os.path.exists(h5_file):
-        convert_h5_to_csv(h5_file, args.out_csv, args.targets, args.aggregation)
+        convert_h5_to_csv(h5_file, args.out_csv, args.targets)
         print(f"SAD scores saved to {args.out_csv}", flush=True)
     else:
         print(f"ERROR: Expected output file {h5_file} not found!", file=sys.stderr)
         sys.exit(1)
 
-def convert_h5_to_csv(h5_file, out_csv, targets_file=None, aggregation='sum'):
+def convert_h5_to_csv(h5_file, out_csv, targets_file=None):
     """
     Convert Basenji HDF5 output to CSV format matching Enformer's output structure.
-    Applies aggregation transformation if needed to match desired method.
+    Basenji now handles aggregation internally via --aggregation parameter.
     """
     with h5py.File(h5_file, 'r') as f:
         # Extract variant information
@@ -95,16 +96,8 @@ def convert_h5_to_csv(h5_file, out_csv, targets_file=None, aggregation='sum'):
         else:
             variant_ids = [f"{c}:{p}:{r}:{a}" for c, p, r, a in zip(chrom, pos, ref, alt)]
         
-        # Extract SAD scores
+        # Extract SAD scores (already aggregated by Basenji with chosen method)
         sad_scores = f['SAD'][:]  # Shape: (n_variants, n_targets)
-        
-        # Basenji's SAD is computed as sum by default
-        # If mean is requested, divide by sequence length (896 bins for Basenji)
-        if aggregation == 'mean':
-            # Basenji has 896 prediction bins
-            seq_length = 896
-            sad_scores = sad_scores / seq_length
-            print(f"Converting SAD from sum to mean (dividing by {seq_length})", flush=True)
     
     # Load target descriptions from targets file if provided
     if targets_file and os.path.exists(targets_file):

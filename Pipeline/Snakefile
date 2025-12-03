@@ -18,6 +18,15 @@ def get_all_outputs():
             f"results/{model}/plots/roc_performance_analysis.png",
             f"results/{model}/plots/performance_metrics.csv"
         ])
+    
+    # Add track-specific plots if enabled
+    if config.get("track_plots", {}).get("enabled", False):
+        tracks = config.get("track_plots", {}).get("tracks", [])
+        for track in tracks:
+            track_safe = track.replace(':', '_').replace(' ', '_')
+            for model in MODELS_TO_RUN:
+                outputs.append(f"results/{model}/plots/tracks/{track_safe}_{model.lower()}.png")
+    
     return outputs
 
 # The 'all' rule specifies the final outputs for all enabled models
@@ -144,6 +153,7 @@ rule generate_plots_enformer:
         python Scripts/generate_plots.py \
             --merged_data {input.merged_data} \
             --out_corr {output.corr_plot} \
+            --config Configs/config.yaml \
             $EXCLUDE_ARG
         """
 
@@ -251,6 +261,71 @@ rule generate_plots_basenji:
         python Scripts/generate_plots.py \
             --merged_data {input.merged_data} \
             --out_corr {output.corr_plot} \
+            --config Configs/config.yaml \
             $EXCLUDE_ARG
         """
 
+
+# =============================================================================
+# TRACK-SPECIFIC COMPARISON PLOTS
+# =============================================================================
+# Generate comparison plots for specific tracks between Enformer and Basenji
+
+def get_track_comparison_outputs():
+    """Generate output paths for track comparison plots"""
+    outputs = []
+    if 'enformer' in MODELS_TO_RUN and 'basenji' in MODELS_TO_RUN:
+        tracks = config.get('track_comparisons', [])
+        for track in tracks:
+            # Sanitize track name for filename
+            safe_track = track.replace(':', '_').replace(' ', '_')
+            outputs.append(f"results/track_comparisons/{safe_track}_comparison.png")
+    return outputs
+
+rule compare_tracks:
+    input:
+        enformer_data="results/enformer/merged_data.tsv",
+        basenji_data="results/basenji/merged_data.tsv",
+        script="Scripts/plot_specific_track.py"
+    output:
+        "results/track_comparisons/{track}_comparison.png"
+    params:
+        track=lambda wildcards: wildcards.track.replace('_', ':'),  # Convert back to original format
+        config_file="Configs/config.yaml"
+    conda:
+        "Configs/analysis-env.yaml"
+    shell:
+        """
+        mkdir -p results/track_comparisons
+        python {input.script} \
+            --enformer {input.enformer_data} \
+            --basenji {input.basenji_data} \
+            --track "{params.track}" \
+            --output {output} \
+            --config {params.config_file}
+        """
+
+# =============================================================================
+# TRACK-SPECIFIC PLOTS (Independent for each model)
+# =============================================================================
+
+rule plot_specific_track:
+    input:
+        script="Scripts/plot_specific_track.py",
+        merged_data="results/{model}/merged_data.tsv"
+    output:
+        "results/{model}/plots/tracks/{track}_{model}.png"
+    params:
+        track=lambda wildcards: wildcards.track.replace('_', ':'),
+        config_file="Configs/config.yaml"
+    conda:
+        "Configs/analysis-env.yaml"
+    shell:
+        """
+        mkdir -p results/{wildcards.model}/plots/tracks
+        python {input.script} \
+            --track "{params.track}" \
+            --output {output} \
+            --config {params.config_file} \
+            --{wildcards.model} {input.merged_data}
+        """

@@ -6,7 +6,7 @@
 # =============================================================================
 models:
   enformer:
-    enabled: false
+    enabled: true
     aggregation_method: "mean"  # "mean" or "sum" - how to collapse spatial dimension for SAD
   basenji:
     enabled: true
@@ -120,3 +120,17 @@ significance:
     nonsignificant: "#95A5A6"   # Gray for non-significant variants
     significant_alpha: 0.7      # Opacity for significant points
     nonsignificant_alpha: 0.3   # Opacity for non-significant points
+
+# =============================================================================
+# TRACK-SPECIFIC PLOTTING
+# =============================================================================
+# Define specific experimental tracks to plot individually against MPRA log2FC
+# Set enabled to false or tracks to [] to disable track-specific plots
+track_plots:
+  enabled: true
+  tracks:
+    - "DNASE:HepG2"
+    - "CHIP:H3K27me3:HepG2" 
+    - "CHIP:H3K4me3:HepG2"
+    - "CHIP:H3K9ac:HepG2"
+    # Add more tracks as needed

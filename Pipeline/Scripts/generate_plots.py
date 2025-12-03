@@ -261,6 +261,16 @@ if assays:
             # Original plotting
             sns.scatterplot(x='mean_SAD', y='log2FC', data=sub, ax=ax_main, alpha=0.6)
         
+        # Add regression line
+        valid_data = sub[['mean_SAD', 'log2FC']].dropna()
+        if len(valid_data) > 1:
+            z = np.polyfit(valid_data['mean_SAD'], valid_data['log2FC'], 1)
+            p = np.poly1d(z)
+            x_line = np.linspace(valid_data['mean_SAD'].min(), valid_data['mean_SAD'].max(), 100)
+            ax_main.plot(x_line, p(x_line), 'r--', alpha=0.8, linewidth=2, label='Regression' if sig_config['use_significance_coloring'] else None)
+            if sig_config['use_significance_coloring'] and (not sub_nonsig.empty or not sub_sig.empty):
+                ax_main.legend(loc='best', fontsize=9, framealpha=0.9)
+        
         ax_main.set_title(f'{assay}: mean SAD vs log2FC', fontsize=14)
         ax_main.set_xlabel(f'Mean SAD (Enformer, {assay})', fontsize=12)
         if i == 0:
