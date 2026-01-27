@@ -8,12 +8,22 @@ models:
   enformer:
     enabled: true
     aggregation_method: "mean"  # "mean" or "sum" - how to collapse spatial dimension for SAD
+    use_absolute: false  # If true, applies abs() to individual track SADs before aggregation
   basenji:
     enabled: true
     aggregation_method: "mean"  # "mean" or "sum" - how to collapse spatial dimension for SAD
-  alphagenome:
-    enabled: false
-    aggregation_method: "mean"  # "mean" or "sum" - how to collapse spatial dimension for SAD
+    use_absolute: false  # If true, applies abs() to individual track SADs before aggregation
+  hyenadna:
+    enabled: true
+    model_name: "LongSafari/hyenadna-tiny-1k-seqlen-hf"
+    sequence_length: 1024
+    context_window: 200
+    use_absolute: false  # If true, applies abs() to impacts before computing ND statistics
+    # model_name: "LongSafari/hyenadna-large-1m-seqlen-hf"
+    # sequence_length: 1000000
+    # context_window: 100000
+
+
 
 # =============================================================================
 # SHARED DATA PATHS
@@ -34,7 +44,12 @@ mpra_data: "Data/MPRA/HEK293T_reporter_variants.tsv.gz"
 cell_line: "HepG2"
 cell_line_column_name: "HepG2"
 
-max_variants: "100"  # Maximum number of variants to process (for testing purposes)
+max_variants: "10"  # Maximum number of variants to process (for testing purposes)
+
+# Merge-level absolute values: If true, merge_data.py creates additional *_ABS columns
+# by applying abs() to per-track scores before computing aggregations like SAD_GLOBAL_MEAN_ABS.
+# Note: This is DIFFERENT from model-level use_absolute which applies abs() BEFORE per-position aggregation.
+use_absolute: true  # When true, computes SAD_GLOBAL_MEAN_ABS, SAD_ASSAY_*_ABS, etc.
 
 # =============================================================================
 # BASENJI CONFIGURATION
@@ -47,31 +62,7 @@ basenji:
   rc: true
   shifts: "0"
 
-# =============================================================================
-# ALPHAGENOME CONFIGURATION
-# =============================================================================
-# alphagenome:
-#   api_key: ""  # Replace with your actual AlphaGenome API key
-#   organism: "human"  # "human" or "mouse"
-#   sequence_length: "1MB"  # "2KB", "16KB", "100KB", "500KB", "1MB"
-#   # Which modalities to score
-#   modalities:
-#     rna_seq: true
-#     cage: true
-#     procap: true
-#     atac: true
-#     dnase: true
-#     chip_histone: true
-#     chip_tf: true
-#     polyadenylation: true
-#     splice_sites: true
-#     splice_site_usage: true
-#     splice_junctions: true
-
-# =============================================================================
-# AGGREGATION FLAGS
-# =============================================================================
-# Aggregation flags (set to true to compute the corresponding aggregation during merge)
+#aggregation settings for plotting
 agg_global: true
 agg_global_max: false
 agg_global_min: false
@@ -83,6 +74,21 @@ agg_per_biosample_min: false
 agg_per_assay: true
 agg_per_assay_max: false
 agg_per_assay_min: false
+
+# =============================================================================
+# TRACK-SPECIFIC PLOTTING
+# =============================================================================
+# Define specific experimental tracks to plot individually against MPRA log2FC
+# Set enabled to false or tracks to [] to disable track-specific plots
+track_plots:
+  enabled: false
+  tracks:
+    - "DNASE:HepG2"
+    - "CHIP:H3K27me3:HepG2" 
+    - "CHIP:H3K4me3:HepG2"
+    - "CHIP:H3K9ac:HepG2"
+    # Add more tracks as needed
+
 
 # Optional: exclude a small symmetric or asymmetric range of mean SAD values from plots
 # Set to null to disable, or provide numeric values.
@@ -121,16 +127,4 @@ significance:
     significant_alpha: 0.7      # Opacity for significant points
     nonsignificant_alpha: 0.3   # Opacity for non-significant points
 
-# =============================================================================
-# TRACK-SPECIFIC PLOTTING
-# =============================================================================
-# Define specific experimental tracks to plot individually against MPRA log2FC
-# Set enabled to false or tracks to [] to disable track-specific plots
-track_plots:
-  enabled: true
-  tracks:
-    - "DNASE:HepG2"
-    - "CHIP:H3K27me3:HepG2" 
-    - "CHIP:H3K4me3:HepG2"
-    - "CHIP:H3K9ac:HepG2"
-    # Add more tracks as needed
+

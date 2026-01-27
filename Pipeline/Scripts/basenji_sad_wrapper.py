@@ -27,6 +27,8 @@ def main():
     parser.add_argument('--shifts', default='0', help='Ensemble prediction shifts')
     parser.add_argument('--aggregation', choices=['mean', 'sum'], default='sum',
                         help='Method to collapse spatial dimension: mean or sum (default: sum)')
+    parser.add_argument('--use_absolute', action='store_true',
+                        help='Use absolute SAD values before aggregation: abs(alt - ref) instead of (alt - ref)')
     
     args = parser.parse_args()
     
@@ -47,12 +49,13 @@ def main():
     # NOTE: We do NOT pass --targets to basenji_sad.py because it expects
     # a different format with clip_soft and other columns. We only use
     # the targets file later for labeling the output CSV columns.
+    # We also do NOT pass --aggregation anymore because we need raw SAD values
+    # to properly apply use_absolute before aggregation.
     cmd = [
         'python', args.basenji_script,
         '-f', args.fasta,
         '-o', args.out_dir,
         '--shifts', args.shifts,
-        '--aggregation', args.aggregation,
     ]
     
     if args.rc:
@@ -62,7 +65,7 @@ def main():
     cmd.extend([args.params, args.model, args.vcf])
     
     print(f"Running Basenji SAD: {' '.join(cmd)}", flush=True)
-    print(f"Using aggregation method: {args.aggregation}", flush=True)
+    print(f"Will apply aggregation method '{args.aggregation}' and use_absolute={args.use_absolute} after loading raw SAD", flush=True)
     
     # Run basenji_sad.py
     result = subprocess.run(cmd, check=True)
@@ -72,16 +75,32 @@ def main():
     h5_file = os.path.join(args.out_dir, 'sad.h5')
     
     if os.path.exists(h5_file):
-        convert_h5_to_csv(h5_file, args.out_csv, args.targets)
+        convert_h5_to_csv(h5_file, args.out_csv, args.targets, 
+                         aggregation=args.aggregation, use_absolute=args.use_absolute)
         print(f"SAD scores saved to {args.out_csv}", flush=True)
+        
+        # Cleanup: Remove HDF5 file and temp directory after successful conversion
+        try:
+            os.remove(h5_file)
+            os.rmdir(args.out_dir)
+            print(f"Cleaned up temporary files: {h5_file}", flush=True)
+        except Exception as e:
+            print(f"Warning: Could not remove temporary files: {e}", flush=True)
     else:
         print(f"ERROR: Expected output file {h5_file} not found!", file=sys.stderr)
         sys.exit(1)
 
-def convert_h5_to_csv(h5_file, out_csv, targets_file=None):
+def convert_h5_to_csv(h5_file, out_csv, targets_file=None, aggregation='sum', use_absolute=False):
     """
     Convert Basenji HDF5 output to CSV format matching Enformer's output structure.
-    Basenji now handles aggregation internally via --aggregation parameter.
+    Applies spatial aggregation and optional absolute value transformation.
+    
+    Args:
+        h5_file: Path to HDF5 file from basenji_sad.py
+        out_csv: Output CSV file path
+        targets_file: Optional targets file for column names
+        aggregation: 'mean' or 'sum' for spatial aggregation
+        use_absolute: If True, apply abs() to SAD before aggregation
     """
     with h5py.File(h5_file, 'r') as f:
         # Extract variant information
@@ -96,8 +115,29 @@ def convert_h5_to_csv(h5_file, out_csv, targets_file=None):
         else:
             variant_ids = [f"{c}:{p}:{r}:{a}" for c, p, r, a in zip(chrom, pos, ref, alt)]
         
-        # Extract SAD scores (already aggregated by Basenji with chosen method)
-        sad_scores = f['SAD'][:]  # Shape: (n_variants, n_targets)
+        # Extract SAD scores - may be 3D (n_variants, n_positions, n_targets) 
+        # or 2D (n_variants, n_targets) depending on basenji version
+        sad_raw = f['SAD'][:]
+        
+        # Check if we need to aggregate (3D input)
+        if sad_raw.ndim == 3:
+            # Apply absolute value if requested (BEFORE aggregation)
+            if use_absolute:
+                sad_raw = np.abs(sad_raw)
+            
+            # Aggregate over spatial dimension (axis=1)
+            if aggregation == 'mean':
+                sad_scores = sad_raw.mean(axis=1)  # [n_variants, n_targets]
+            elif aggregation == 'sum':
+                sad_scores = sad_raw.sum(axis=1)   # [n_variants, n_targets]
+            else:
+                raise ValueError(f"Unknown aggregation method: {aggregation}")
+        else:
+            # Already aggregated (2D) - cannot apply use_absolute correctly
+            sad_scores = sad_raw
+            if use_absolute:
+                print("WARNING: use_absolute requested but SAD is already aggregated. "
+                      "Cannot apply abs() correctly. Ignoring use_absolute flag.", flush=True)
     
     # Load target descriptions from targets file if provided
     if targets_file and os.path.exists(targets_file):

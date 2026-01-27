@@ -22,60 +22,24 @@ parser.add_argument('--max_variants', help="Integer N or 'all' (default: all)", 
 parser.add_argument('--print_every', type=int, default=50, help='Progress print frequency (variants)')
 parser.add_argument('--aggregation', choices=['mean', 'sum'], default='mean', 
                     help='Method to collapse spatial dimension: mean or sum (default: mean)')
-
-
+parser.add_argument('--use_absolute', action='store_true', 
+                    help='Use absolute SAD values before aggregation: abs(alt - ref) instead of (alt - ref)')
 
 # Print flag help
 parser.add_argument('--help_flags', action='store_true', help='Explain flags and exit')
 
 args = parser.parse_args()
 
+# ---------------- Helper Functions ----------------
 def _log(msg):
     ts = time.strftime('%H:%M:%S')
     print(f'[{ts}] {msg}', flush=True)
-
-def print_flags_help():
-    print(r"""
-Aggregation/Control Flags
-  --max_variants N | all
-      Limit how many variants are scored. Integer N (e.g., 10) or 'all' (default).
-# ... (rest of help text is unchanged) ...
-""")
-    raise SystemExit(0)
-
-if args.help_flags:
-    print_flags_help()
 
 def _parse_max(x):
     if x is None: return None
     x = str(x).strip()
     if x.lower() == 'all' or x == '': return None
     return int(x)
-
-start_time = time.time()
-MAX_VARIANTS   = _parse_max(args.max_variants)
-MODEL_PATH     = 'https://tfhub.dev/deepmind/enformer/1'
-FASTA_FILE     = args.fasta
-VCF_FILE       = args.vcf
-TARGETS_TXT    = args.targets
-OUT_CSV        = args.out
-SEQUENCE_LENGTH = 393216
-
-# Startup summary
-gpu_devices = tf.config.list_physical_devices('GPU')
-_log('==== Enformer SAD runner ====')
-_log(f'VCF: {VCF_FILE}')
-_log(f'FASTA: {FASTA_FILE}')
-_log(f'Targets: {TARGETS_TXT}')
-_log(f'Output: {OUT_CSV}')
-_log(f'max_variants: {MAX_VARIANTS if MAX_VARIANTS is not None else "all"} | print_every: {args.print_every}')
-_log(f'GPU visible: {len(gpu_devices)} -> {gpu_devices}')
-
-# ---------------- utils ----------------
-VALID_A   = set("ACGT")
-DNA_UPPER = re.compile(r'[^ACGTN]')
-CLEAN_SEX = re.compile(r'\b(male|female)\b', flags=re.IGNORECASE)
-MULTISPACE= re.compile(r'\s+')
 
 def sanitize_seq(s: str) -> str:
     return DNA_UPPER.sub('N', s.upper())
@@ -86,15 +50,77 @@ def clean_biosample_name(s: str) -> str:
 def one_hot_encode(seq: str) -> np.ndarray:
     return kipoiseq.transforms.functional.one_hot_dna(seq).astype(np.float32) # type: ignore
 
-# ---------------- FASTA ----------------
+def print_flags_help():
+    print(r"""
+                Aggregation/Control Flags
+                --max_variants N | all
+                    Limit how many variants are scored. Integer N (e.g., 10) or 'all' (default).
+                # ... (rest of help text is unchanged) ...
+                """)
+    raise SystemExit(0)
+
+if args.help_flags:
+    print_flags_help()
+
+# ---------------- Constants & Configuration ----------------
+VALID_A = set("ACGT")
+DNA_UPPER = re.compile(r'[^ACGTN]')
+CLEAN_SEX = re.compile(r'\b(male|female)\b', flags=re.IGNORECASE)
+MULTISPACE = re.compile(r'\s+')
+
+start_time = time.time()
+MAX_VARIANTS = _parse_max(args.max_variants)
+MODEL_PATH = 'https://tfhub.dev/deepmind/enformer/1'
+FASTA_FILE = args.fasta
+VCF_FILE = args.vcf
+TARGETS_TXT = args.targets
+OUT_CSV = args.out
+SEQUENCE_LENGTH = 393216
+
+# ---------------- Startup & Validation ----------------
+gpu_devices = tf.config.list_physical_devices('GPU')
+_log('==== Enformer SAD runner ====')
+_log(f'VCF: {VCF_FILE}')
+_log(f'Output: {OUT_CSV}')
+_log(f'Max variants: {MAX_VARIANTS or "all"} | Aggregation: {args.aggregation}')
+_log(f'GPUs available: {len(gpu_devices)}')
+
+# Validate all inputs before loading heavy models
+_log('Validating inputs...')
+
+if not os.path.exists(VCF_FILE):
+    raise FileNotFoundError(f"VCF file not found: {VCF_FILE}")
+
+if not os.path.exists(FASTA_FILE):
+    raise FileNotFoundError(f"FASTA file not found: {FASTA_FILE}")
+
+if not os.path.exists(TARGETS_TXT):
+    raise FileNotFoundError(f"Targets file not found: {TARGETS_TXT}")
+
+# Check targets file has required column
+targets_df = pd.read_csv(TARGETS_TXT, sep='\t')
+if 'description' not in targets_df.columns:
+    raise ValueError(f"'description' column not found in {TARGETS_TXT}. Available: {list(targets_df.columns)}")
+
+descriptions = targets_df['description'].astype(str).tolist()
+T = len(descriptions)
+if T == 0:
+    raise ValueError(f"No target tracks found in {TARGETS_TXT}")
+
+# Check output directory is writable
+out_dir = os.path.dirname(OUT_CSV)
+if out_dir and not os.path.exists(out_dir):
+    raise FileNotFoundError(f"Output directory does not exist: {out_dir}")
+
+_log(f'✓ All inputs valid | {T} target tracks')
+
+# ---------------- Class Definitions ----------------
 class FastaStringExtractor:
     def __init__(self, fasta_path):
-        _log('Loading FASTA...')
         self.fasta = pyfaidx.Fasta(fasta_path)
         self.names = list(self.fasta.keys())
         self.has_chr = any(n.startswith("chr") for n in self.names)
         self.chrom_sizes = {k: len(v) for k, v in self.fasta.items()}
-        _log(f'FASTA loaded. has_chr={self.has_chr} | chroms={len(self.chrom_sizes)}')
 
     def norm_chrom(self, chrom_from_vcf: str) -> str:
         if self.has_chr and not chrom_from_vcf.startswith("chr"):
@@ -118,146 +144,175 @@ class FastaStringExtractor:
 
     def close(self): 
         self.fasta.close()
-        _log('FASTA closed.')
 
-# ---------------- VCF (SNVs only) ----------------
-def variant_generator_only_snvs(vcf_path, gzipped=True, max_variants=None):
-    _log(f'Reading VCF (SNVs only): {vcf_path}')
-    if max_variants:
-        _log(f'Will stop after {max_variants} valid SNVs')
-    _open = (lambda p: gzip.open(p, 'rt')) if gzipped else (lambda p: open(p))
-    count = 0
-    with _open(vcf_path) as f:
-        for line in f:
-            if line.startswith('#'): continue
-            fields = line.rstrip('\n').split('\t')
-            if len(fields) < 5: continue
-            chrom, pos, vid, ref, alts = fields[:5]
-            ref = ref.strip().upper()
-            for alt in alts.strip().split(','):
-                alt = alt.upper()
-                if len(ref)==1 and len(alt)==1 and (ref in VALID_A) and (alt in VALID_A):
-                    yield kipoiseq.dataclasses.Variant(chrom=chrom, pos=pos, ref=ref, alt=alt, id=vid)
-                    count += 1
-                    if max_variants and count >= max_variants:
-                        _log(f'Reached max_variants limit ({max_variants}). Stopping VCF read.')
-                        return
-
-def variant_centered_inputs(vcf_path, seq_len, fasta_extractor, gzipped=True, max_variants=None):
-    vseq = kipoiseq.extractors.VariantSeqExtractor(reference_sequence=fasta_extractor)
-    for var in variant_generator_only_snvs(vcf_path, gzipped=gzipped, max_variants=max_variants):
-        chrom = fasta_extractor.norm_chrom(var.chrom)
-        iv = Interval(chrom, var.pos, var.pos).resize(seq_len)
-        center = iv.center() - iv.start
-        ref_seq = sanitize_seq(vseq.extract(iv, [], anchor=center))
-        alt_seq = sanitize_seq(vseq.extract(iv, [var], anchor=center))
-        yield {'inputs': {'ref': one_hot_encode(ref_seq), 'alt': one_hot_encode(alt_seq)},
-               'meta':   {'chrom': chrom, 'pos': var.pos, 'id': var.id, 'ref': var.ref, 'alt': var.alt}}
-
-# ---------------- Enformer ----------------
 class Enformer:
     def __init__(self, tfhub_url):
-        _log('Loading Enformer TF-Hub model (this may take a bit)...')
+        _log('Loading Enformer model...')
         self._model = hub.load(tfhub_url).model
-        _log('Enformer model loaded.')
+        _log('Model loaded')
 
     def predict_on_batch(self, x):
         out = self._model.predict_on_batch(x)
         return {k: v.numpy() for k, v in out.items()}
 
 class EnformerScoreVariantsRaw:
-    def __init__(self, tfhub_url, organism='human', aggregation='mean'):
+    def __init__(self, tfhub_url, organism='human', aggregation='mean', use_absolute=False):
         self._m = Enformer(tfhub_url)
         self._org = organism
         self._aggregation = aggregation
+        self._use_absolute = use_absolute
     
     def predict_on_batch(self, inputs):
         ref = self._m.predict_on_batch(inputs['ref'])[self._org]  # [B, L, T]
         alt = self._m.predict_on_batch(inputs['alt'])[self._org]  # [B, L, T]
         
+        # Calculate SAD (Sequence Activity Difference)
+        sad = alt - ref  # [B, L, T]
+        
+        # Apply absolute value if requested
+        if self._use_absolute:
+            sad = np.abs(sad)
+        
+        # Aggregate over spatial dimension (L)
         if self._aggregation == 'mean':
-            return alt.mean(axis=1) - ref.mean(axis=1)            # [B, T]
+            return sad.mean(axis=1)  # [B, T]
         elif self._aggregation == 'sum':
-            return alt.sum(axis=1) - ref.sum(axis=1)              # [B, T]
+            return sad.sum(axis=1)   # [B, T]
         else:
             raise ValueError(f"Unknown aggregation method: {self._aggregation}")
 
-# ---------------- Targets & groupings ----------------
-_log('Loading targets...')
-targets_df = pd.read_csv(TARGETS_TXT, sep='\t')
-if 'description' not in targets_df.columns:
-    raise ValueError(f"'description' column not found in {TARGETS_TXT}. Columns present: {list(targets_df.columns)}")
-descriptions = targets_df['description'].astype(str).tolist()
-T = len(descriptions)
-_log(f'Targets loaded: {T} tracks.')
-if T > 0:
-    preview = ', '.join(descriptions[:3]) + (' ...' if T > 3 else '')
-    _log(f'First descriptions: {preview}')
+# ---------------- VCF Processing Functions ----------------
+def variant_generator_only_snvs(vcf_path, gzipped=True, max_variants=None):
+    _log(f'Reading VCF (SNVs only): {vcf_path}')
+    
+    # Collect all variants
+    variants = []
+    open_func = gzip.open if gzipped else open
+    mode = 'rt' if gzipped else 'r'
+    
+    with open_func(vcf_path, mode) as f:
+        for line in f:
+            if line.startswith('#'): 
+                continue
+            
+            fields = line.rstrip('\n').split('\t')
+            if len(fields) < 8: 
+                continue
+                
+            chrom, pos, vid, ref, alts = fields[:5]
+            info_field = fields[7]
+            ref = ref.strip().upper()
+            
+            # Extract LOG2FC from INFO field
+            log2fc = 0.0
+            for item in info_field.split(';'):
+                if item.startswith('LOG2FC='):
+                    try:
+                        log2fc = float(item.split('=')[1])
+                    except (ValueError, IndexError):
+                        pass
+                    break
+            
+            # Process each alternate allele
+            for alt in alts.strip().split(','):
+                alt = alt.upper()
+                if len(ref) == 1 and len(alt) == 1 and ref in VALID_A and alt in VALID_A:
+                    variants.append((abs(log2fc), chrom, pos, vid, ref, alt))
+    
+    variants.sort(key=lambda x: x[0], reverse=True)
+    
+    if max_variants and len(variants) > max_variants:
+        variants = variants[:max_variants]
+        _log(f'Selected top {max_variants} variants by absolute LOG2FC')
+    
+    _log(f'Processing {len(variants)} variants (sorted by |LOG2FC|)')
+    
+    for _, chrom, pos, vid, ref, alt in variants:
+        yield kipoiseq.dataclasses.Variant(chrom=chrom, pos=pos, ref=ref, alt=alt, id=vid)
 
-assays, biosamples = [], []
-for d in descriptions:
-    if ':' in d:
-        a, b = d.split(':', 1)
-        assays.append(a.strip())
-        biosamples.append(clean_biosample_name(b))
-    else:
-        assays.append(d.strip())
-        biosamples.append('NA')
-assays = np.array(assays, dtype=object)
-biosamples = np.array(biosamples, dtype=object)
+def variant_centered_inputs(vcf_path, seq_len, fasta_extractor, gzipped=True, max_variants=None):
+    """
+    Extrahiert für jede Variante zwei Sequenzen (Referenz und Alt) der Länge seq_len,
+    zentriert um die Varianten-Position. One-hot encodiert für das Modell.
+    """
+    vseq = kipoiseq.extractors.VariantSeqExtractor(reference_sequence=fasta_extractor)
+    
+    for var in variant_generator_only_snvs(vcf_path, gzipped=gzipped, max_variants=max_variants):
+        # Erstelle Interval um Variante herum (z.B. 393kb für Enformer)
+        chrom = fasta_extractor.norm_chrom(var.chrom)
+        interval = Interval(chrom, var.pos, var.pos).resize(seq_len)
+        center_offset = interval.center() - interval.start
+        
+        # Extrahiere Referenz- und Alt-Sequenz
+        ref_seq = sanitize_seq(vseq.extract(interval, [], anchor=center_offset))
+        alt_seq = sanitize_seq(vseq.extract(interval, [var], anchor=center_offset))
+        
+        # Encodiere für Modell (one-hot) und packe Metadaten dazu
+        result = {
+            'inputs': {
+                'ref': one_hot_encode(ref_seq),
+                'alt': one_hot_encode(alt_seq)
+            },
+            'meta': {
+                'chrom': chrom,
+                'pos': var.pos,
+                'id': var.id,
+                'ref': var.ref,
+                'alt': var.alt
+            }
+        }
+        yield result
 
-assay_to_idx = {}
-biosample_to_idx = {}
-for i, (a, b) in enumerate(zip(assays, biosamples)):
-    assay_to_idx.setdefault(a, []).append(i)
-    biosample_to_idx.setdefault(b, []).append(i)
+# ---------------- Main Execution ----------------
+def run_scoring():
+    """Führt das komplette Scoring durch: Model laden, Varianten scoren, Ergebnisse speichern."""
+    
+    # Initialize model and FASTA
+    model = EnformerScoreVariantsRaw(MODEL_PATH, organism='human', 
+                                     aggregation=args.aggregation,
+                                     use_absolute=args.use_absolute)
+    fasta = FastaStringExtractor(FASTA_FILE)
+    
+    # Score all variants
+    rows = []
+    n_done = 0
+    last_tick = time.time()
+    _log('Scoring variants...')
+    
+    for ex in variant_centered_inputs(VCF_FILE, SEQUENCE_LENGTH, fasta, gzipped=True, max_variants=MAX_VARIANTS):
+        try:
+            scores = model.predict_on_batch({k: v[tf.newaxis] for k, v in ex['inputs'].items()})[0]
+        except Exception as e:
+            _log(f'Predict error at variant {ex["meta"]}: {e}')
+            continue
+        
+        if scores.shape[-1] != T:
+            raise RuntimeError(f"Score dim {scores.shape[-1]} != targets dim {T}")
+        
+        # Build result row: variant metadata + track scores
+        row = ex['meta'].copy()
+        for i in range(T):
+            row[descriptions[i]] = round(float(scores[i]), 5)
+        
+        rows.append(row)
+        n_done += 1
+        
+        if n_done % args.print_every == 0:
+            dt = time.time() - last_tick
+            last_tick = time.time()
+            _log(f'Processed {n_done} variants | Δt ~ {dt:.1f}s')
+    
+    fasta.close()
+    
+    # Save results
+    df = pd.DataFrame(rows)
+    meta_cols = ['chrom', 'pos', 'id', 'ref', 'alt']
+    track_cols = [d for d in descriptions if d in df.columns]
+    df = df[meta_cols + track_cols]
+    
+    df.to_csv(OUT_CSV, index=False)
+    _log(f'Saved {len(df)} variants to {OUT_CSV}')
+    _log(f'Total time: {(time.time()-start_time):.1f}s')
 
-_log(f'Unique assays: {len(assay_to_idx)} | Unique biosamples: {len(biosample_to_idx)}')
-
-# ---------------- Run scoring ----------------
-_log(f'Using aggregation method: {args.aggregation}')
-model = EnformerScoreVariantsRaw(MODEL_PATH, organism='human', aggregation=args.aggregation)
-fasta = FastaStringExtractor(FASTA_FILE)
-
-rows, n_done = [], 0
-last_tick = time.time()
-_log('Scoring variants...')
-for ex in variant_centered_inputs(VCF_FILE, SEQUENCE_LENGTH, fasta, gzipped=True, max_variants=MAX_VARIANTS):
-    try:
-        scores = model.predict_on_batch({k: v[tf.newaxis] for k, v in ex['inputs'].items()})[0]  # [T]
-    except Exception as e:
-        _log(f'Predict error at variant {ex["meta"]}: {e}')
-        continue
-
-    if scores.shape[-1] != T:
-        raise RuntimeError(f"Score dim {scores.shape[-1]} != targets dim {T}")
-
-    meta = dict(ex['meta'])
-
-    # Round track scores to 5 decimal places to limit file size/precision
-    tracks = {descriptions[i]: round(float(scores[i]), 5) for i in range(T)}
-    row = {**meta, **tracks}
-    rows.append(row)
-    n_done += 1
-
-    if n_done % max(1, args.print_every) == 0:
-        dt = time.time() - last_tick
-        last_tick = time.time()
-        _log(f'Processed {n_done} variants. Last meta: {meta} | Δt ~ {dt:.1f}s')
-
-fasta.close()
-
-df = pd.DataFrame(rows)
-
-# ----- Column ordering -----
-
-# ----- Column ordering -----
-meta_cols = ['chrom', 'pos', 'id', 'ref', 'alt']
-track_cols = [d for d in descriptions if d in df.columns]
-ordered_cols = [c for c in meta_cols if c in df.columns] + track_cols
-df = df[ordered_cols]
-
-df.to_csv(OUT_CSV, index=False)
-_log(f'Wrote {OUT_CSV} with {df.shape[0]} variants (limit={args.max_variants}).')
-_log(f'Columns: meta({len(meta_cols)}) + tracks({len(track_cols)}).')
-_log(f'Total elapsed: {(time.time()-start_time):.1f}s')
+if __name__ == '__main__':
+    run_scoring()

@@ -1,0 +1,16 @@
+name: hyenadna
+channels:
+  - pytorch
+  - nvidia
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.9
+  - pytorch
+  - pytorch-cuda=11.8
+  - transformers
+  - pandas
+  - numpy
+  - scipy
+  - pyfaidx
+  - pip

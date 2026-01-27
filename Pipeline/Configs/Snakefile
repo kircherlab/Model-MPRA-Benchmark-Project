@@ -40,7 +40,6 @@ rule all:
 
 rule filter_vcf:
     input:
-        script="Scripts/filter_vcf.py",
         vcf=config["vcf"]
     output:
         filtered_vcf="Data/VCF/filtered_variants.vcf.gz"
@@ -50,8 +49,29 @@ rule filter_vcf:
         "logs/preprocessing/filter_vcf.log"
     shell:
         """
+        set +e  # Temporarily disable strict error checking
         mkdir -p Data/VCF logs/preprocessing
-        python {input.script} {input.vcf} {output.filtered_vcf} {params.max_variants} {log}
+        
+        if [ "{params.max_variants}" = "all" ]; then
+            # No filtering, just copy the original VCF
+            cp {input.vcf} {output.filtered_vcf}
+            echo "No filtering applied (max_variants=all)" > {log}
+        else
+            # Count header lines and filter in one pass
+            zcat {input.vcf} | awk -v max={params.max_variants} '
+                BEGIN {{ variant_count=0; header_count=0 }}
+                /^#/ {{ print; header_count++; next }}
+                variant_count < max {{ print; variant_count++ }}
+                variant_count >= max {{ exit }}
+            ' | gzip > {output.filtered_vcf}
+            
+            # Log the results
+            RESULT_LINES=$(zcat {output.filtered_vcf} | wc -l)
+            echo "Filtered VCF to first {params.max_variants} variants" > {log}
+            echo "Total lines in output: $RESULT_LINES" >> {log}
+        fi
+        
+        set -e  # Re-enable strict error checking
         """
 
 # =============================================================================
@@ -67,8 +87,7 @@ rule run_enformer:
     output:
         "results/enformer/enformer_scores.csv"
     params:
-        aggregation=config["models"]["enformer"].get("aggregation_method", "mean"),
-        use_absolute_flag="--use_absolute" if config["models"]["enformer"].get("use_absolute", False) else ""
+        aggregation=config["models"]["enformer"].get("aggregation_method", "mean")
     log:
         "logs/enformer/enformer.log"
     conda:
@@ -84,7 +103,6 @@ rule run_enformer:
             --targets {input.targets} \
             --out {output} \
             --aggregation {params.aggregation} \
-            {params.use_absolute_flag} \
             --print_every 50 2>&1 | tee {log}
         """
 
@@ -104,7 +122,6 @@ rule merge_data_enformer:
         agg_per_assay=config.get("agg_per_assay", False),
         agg_per_assay_max=config.get("agg_per_assay_max", False),
         agg_per_assay_min=config.get("agg_per_assay_min", False),
-        use_absolute=config.get("use_absolute", False),
     conda:
         "Configs/analysis-env.yaml"
     script:
@@ -170,8 +187,7 @@ rule run_basenji:
         targets=config["basenji"]["targets"],
         rc="--rc" if config["basenji"].get("rc", False) else "",
         shifts=config["basenji"].get("shifts", "0"),
-        aggregation=config["models"]["basenji"].get("aggregation_method", "sum"),
-        use_absolute_flag="--use_absolute" if config["models"]["basenji"].get("use_absolute", False) else ""
+        aggregation=config["models"]["basenji"].get("aggregation_method", "sum")
     output:
         "results/basenji/basenji_scores.csv"
     log:
@@ -194,7 +210,6 @@ rule run_basenji:
             --out_csv {output} \
             --shifts {params.shifts} \
             --aggregation {params.aggregation} \
-            {params.use_absolute_flag} \
             {params.rc} 2>&1 | tee {log}
         """
 
@@ -219,7 +234,6 @@ rule merge_data_basenji:
         agg_per_assay=config.get("agg_per_assay", False),
         agg_per_assay_max=config.get("agg_per_assay_max", False),
         agg_per_assay_min=config.get("agg_per_assay_min", False),
-        use_absolute=config.get("use_absolute", False),
     conda:
         "Configs/basenji-env.yaml"
     script:
@@ -265,8 +279,7 @@ rule run_hyenadna:
     params:
         model=config["models"]["hyenadna"].get("model_name", "LongSafari/hyenadna-tiny-1k-seqlen-hf"),
         seq_len=config["models"]["hyenadna"].get("sequence_length", 1024),
-        context=config["models"]["hyenadna"].get("context_window", 200),
-        use_absolute_flag="--use_absolute" if config["models"]["hyenadna"].get("use_absolute", False) else ""
+        context=config["models"]["hyenadna"].get("context_window", 200)
     log:
         "logs/hyenadna/hyenadna.log"
     conda:
@@ -281,7 +294,6 @@ rule run_hyenadna:
             --model "{params.model}" \
             --sequence_length {params.seq_len} \
             --context_window {params.context} \
-            {params.use_absolute_flag} \
             --print_every 50 2>&1 | tee {log}
         """
 
@@ -292,16 +304,15 @@ rule merge_data_hyenadna:
     output:
         "results/hyenadna/merged_data.tsv"
     params:
-        agg_global=config.get("agg_global", False),
-        agg_global_max=config.get("agg_global_max", False),
-        agg_global_min=config.get("agg_global_min", False),
-        agg_per_biosample=config.get("agg_per_biosample", False),
-        agg_per_biosample_max=config.get("agg_per_biosample_max", False),
-        agg_per_biosample_min=config.get("agg_per_biosample_min", False),
-        agg_per_assay=config.get("agg_per_assay", False),
-        agg_per_assay_max=config.get("agg_per_assay_max", False),
-        agg_per_assay_min=config.get("agg_per_assay_min", False),
-        use_absolute=config.get("use_absolute", False),
+        agg_global=False,
+        agg_global_max=False,
+        agg_global_min=False,
+        agg_per_biosample=False,
+        agg_per_biosample_max=False,
+        agg_per_biosample_min=False,
+        agg_per_assay=False,
+        agg_per_assay_max=False,
+        agg_per_assay_min=False,
     conda:
         "Configs/analysis-env.yaml"
     script:

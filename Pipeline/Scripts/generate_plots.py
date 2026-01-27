@@ -65,8 +65,16 @@ df = pd.read_csv(merged_file, sep='\t')
 
 # Block 2: Identify assay columns and compute per-assay means
 assay_cols = [c for c in df.columns if c.startswith('SAD_ASSAY_')]
+
+# Fallback for HyenaDNA or generic ND scores
 if not assay_cols:
-    raise ValueError("No SAD_ASSAY_* columns found in merged data. Run merge with agg_per_assay enabled.")
+    assay_cols = [c for c in df.columns if c.startswith('ND_')]
+    # Filter for relevant ND columns (influence score and max usually)
+    # Or just take all of them. Let's take all numeric ND summaries.
+    assay_cols = [c for c in assay_cols if c in ['ND_influence_score', 'ND_max', 'ND_mean']]
+
+if not assay_cols:
+    raise ValueError("No SAD_ASSAY_* or ND_* columns found in merged data. Run merge with agg_per_assay enabled or check input columns.")
 
 
 # Block 3: Prepare data for plotting
@@ -186,8 +194,29 @@ for i, assay in enumerate(sorted(plot_df['assay'].unique())):
         # Original plotting without significance coloring
         sns.scatterplot(x='mean_SAD', y='log2FC', data=sub, ax=ax_scatter, alpha=0.5)
     
-    ax_scatter.set_title(f'{assay}: mean SAD vs log2FC', fontsize=16)
-    ax_scatter.set_xlabel(f'Mean SAD (Enformer, {assay})', fontsize=14)
+    # Generic labels
+    score_label = assay
+    if 'SAD' in assay or 'Enformer' in assay:
+        xlabel = f'Mean SAD (Enformer, {assay})'
+        title_suffix = 'Mean SAD vs log2FC'
+    elif assay == 'ND_influence_score':
+        xlabel = 'ND Influence Score (RMS)'
+        title_suffix = 'ND Influence Score (RMS) vs log2FC'
+    elif assay == 'ND_mean':
+        xlabel = 'ND Mean Score'
+        title_suffix = 'ND Mean Score vs log2FC'
+    elif assay == 'ND_max':
+        xlabel = 'ND Max Score'
+        title_suffix = 'ND Max Score vs log2FC'
+    elif 'ND' in assay:
+        xlabel = f'ND Score ({assay})'
+        title_suffix = f'{assay} vs log2FC'
+    else:
+        xlabel = f'Model Score ({assay})'
+        title_suffix = f'{assay} vs log2FC'
+
+    ax_scatter.set_title(title_suffix, fontsize=16)
+    ax_scatter.set_xlabel(xlabel, fontsize=14)
     ax_scatter.set_ylabel('log2FoldChange (MPRA)', fontsize=14)
     # Set x/y limits dynamically based on data
     xvals = sub['mean_SAD'].dropna()
@@ -208,8 +237,27 @@ for i, assay in enumerate(sorted(plot_df['assay'].unique())):
     # Histogram (bottom row)
     ax_hist = axes[1, i]
     sns.histplot(sub['mean_SAD'].dropna(), bins=50, ax=ax_hist, color='skyblue')
-    ax_hist.set_title(f'{assay}: mean SAD histogram', fontsize=16)
-    ax_hist.set_xlabel('Mean SAD (Enformer)', fontsize=14)
+    # Dynamic histogram labels
+    if 'SAD' in assay or 'Enformer' in assay:
+        hist_title = f'{assay}: mean SAD histogram'
+        hist_xlabel = f'Mean SAD (Enformer, {assay})'
+    elif assay == 'ND_influence_score':
+        hist_title = 'ND Influence Score (RMS) Distribution'
+        hist_xlabel = 'ND Influence Score (RMS)'
+    elif assay == 'ND_mean':
+        hist_title = 'ND Mean Score Distribution'
+        hist_xlabel = 'ND Mean Score'
+    elif assay == 'ND_max':
+        hist_title = 'ND Max Score Distribution'
+        hist_xlabel = 'ND Max Score'
+    elif 'ND' in assay:
+        hist_title = f'{assay}: ND Score histogram'
+        hist_xlabel = f'ND Score ({assay})'
+    else:
+        hist_title = f'{assay}: Score histogram'
+        hist_xlabel = f'Model Score ({assay})'
+    ax_hist.set_title(hist_title, fontsize=16)
+    ax_hist.set_xlabel(hist_xlabel, fontsize=14)
     ax_hist.set_ylabel('Count', fontsize=14)
     # Set histogram x-limits dynamically
     if len(xvals) > 0:
@@ -271,8 +319,28 @@ if assays:
             if sig_config['use_significance_coloring'] and (not sub_nonsig.empty or not sub_sig.empty):
                 ax_main.legend(loc='best', fontsize=9, framealpha=0.9)
         
-        ax_main.set_title(f'{assay}: mean SAD vs log2FC', fontsize=14)
-        ax_main.set_xlabel(f'Mean SAD (Enformer, {assay})', fontsize=12)
+        # Generic labels
+        if 'SAD' in assay or 'Enformer' in assay:
+            xlabel = f'Mean SAD (Enformer, {assay})'
+            title = f'{assay}: mean SAD vs log2FC'
+        elif assay == 'ND_influence_score':
+            xlabel = 'ND Influence Score (RMS)'
+            title = 'ND Influence Score (RMS) vs log2FC'
+        elif assay == 'ND_mean':
+            xlabel = 'ND Mean Score'
+            title = 'ND Mean Score vs log2FC'
+        elif assay == 'ND_max':
+            xlabel = 'ND Max Score'
+            title = 'ND Max Score vs log2FC'
+        elif 'ND' in assay:
+            xlabel = f'ND Score ({assay})'
+            title = f'{assay}: Score vs log2FC'
+        else:
+            xlabel = f'Model Score ({assay})'
+            title = f'{assay}: Score vs log2FC'
+
+        ax_main.set_title(title, fontsize=14)
+        ax_main.set_xlabel(xlabel, fontsize=12)
         if i == 0:
             ax_main.set_ylabel('log2FoldChange (MPRA)', fontsize=12)
         else:

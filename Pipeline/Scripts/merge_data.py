@@ -47,7 +47,6 @@ else:
 
 
 def read_model_scores(scores_path):
-    """Load model scores (works for Enformer, Basenji, or any model with SAD scores)"""
     print(f"Loading model scores from: {scores_path}")
     df = pd.read_csv(scores_path)
     return df
@@ -114,7 +113,6 @@ def expand_info_columns(records):
                 base[k] = val
         rows.append(base)
     df = pd.DataFrame(rows)
-    # ensure consistent column order
     cols = ['chrom', 'pos', 'id', 'ref', 'alt'] + [k for k in keys]
     df = df[cols]
     return df
@@ -141,6 +139,7 @@ def compute_aggregations(enf_df, descriptions, params):
         biosample_to_idx.setdefault(b, []).append(i)
 
     # For each row in enf_df, compute aggs based on params
+    use_abs = params.get('use_absolute', False)
     aggs_rows = []
     track_cols = descriptions
     for _, row in enf_df.iterrows():
@@ -148,10 +147,16 @@ def compute_aggregations(enf_df, descriptions, params):
         row_aggs = {}
         if params.get('agg_global'):
             row_aggs['SAD_GLOBAL_MEAN'] = np.nanmean(scores)
+            if use_abs:
+                row_aggs['SAD_GLOBAL_MEAN_ABS'] = np.nanmean(np.abs(scores))
         if params.get('agg_global_max'):
             row_aggs['SAD_GLOBAL_MAX'] = np.nanmax(scores)
+            if use_abs:
+                row_aggs['SAD_GLOBAL_MAX_ABS'] = np.nanmax(np.abs(scores))
         if params.get('agg_global_min'):
             row_aggs['SAD_GLOBAL_MIN'] = np.nanmin(scores)
+            if use_abs:
+                row_aggs['SAD_GLOBAL_MIN_ABS'] = np.nanmin(np.abs(scores))
 
         if params.get('agg_per_biosample') or params.get('agg_per_biosample_max') or params.get('agg_per_biosample_min'):
             for b in sorted(biosample_to_idx.keys()):
@@ -159,10 +164,16 @@ def compute_aggregations(enf_df, descriptions, params):
                 if not idxs: continue
                 if params.get('agg_per_biosample'):
                     row_aggs[f'SAD_BIOSAMPLE_{b}'] = np.nanmean(scores[idxs])
+                    if use_abs:
+                        row_aggs[f'SAD_BIOSAMPLE_{b}_ABS'] = np.nanmean(np.abs(scores[idxs]))
                 if params.get('agg_per_biosample_max'):
                     row_aggs[f'SAD_BIOSAMPLE_MAX_{b}'] = np.nanmax(scores[idxs])
+                    if use_abs:
+                        row_aggs[f'SAD_BIOSAMPLE_MAX_{b}_ABS'] = np.nanmax(np.abs(scores[idxs]))
                 if params.get('agg_per_biosample_min'):
                     row_aggs[f'SAD_BIOSAMPLE_MIN_{b}'] = np.nanmin(scores[idxs])
+                    if use_abs:
+                        row_aggs[f'SAD_BIOSAMPLE_MIN_{b}_ABS'] = np.nanmin(np.abs(scores[idxs]))
 
         if params.get('agg_per_assay') or params.get('agg_per_assay_max') or params.get('agg_per_assay_min'):
             for a in sorted(assay_to_idx.keys()):
@@ -170,10 +181,16 @@ def compute_aggregations(enf_df, descriptions, params):
                 if not idxs: continue
                 if params.get('agg_per_assay'):
                     row_aggs[f'SAD_ASSAY_{a}'] = np.nanmean(scores[idxs])
+                    if use_abs:
+                        row_aggs[f'SAD_ASSAY_{a}_ABS'] = np.nanmean(np.abs(scores[idxs]))
                 if params.get('agg_per_assay_max'):
                     row_aggs[f'SAD_ASSAY_MAX_{a}'] = np.nanmax(scores[idxs])
+                    if use_abs:
+                        row_aggs[f'SAD_ASSAY_MAX_{a}_ABS'] = np.nanmax(np.abs(scores[idxs]))
                 if params.get('agg_per_assay_min'):
                     row_aggs[f'SAD_ASSAY_MIN_{a}'] = np.nanmin(scores[idxs])
+                    if use_abs:
+                        row_aggs[f'SAD_ASSAY_MIN_{a}_ABS'] = np.nanmin(np.abs(scores[idxs]))
 
         aggs_rows.append(row_aggs)
     aggs_df = pd.DataFrame(aggs_rows)
@@ -228,20 +245,35 @@ def main():
     mpra_info_cols = [c for c in mpra_df.columns if c not in ['chrom', 'pos', 'id', 'ref', 'alt', 'join_key']]
     agg_cols = list(aggs_df.columns)
 
+    # Determine which track columns to keep
+    # Keep tracks if: (1) there are very few (<20), or (2) they start with ND_ (HyenaDNA scores)
+    keep_tracks = len(descriptions) < 20 or any(d.startswith('ND_') for d in descriptions)
+    
+    # Build final output: metadata + MPRA INFO + aggregations + (optionally) track scores
     out_meta = ['chrom', 'pos', 'id', 'ref', 'alt']
-    final = pd.concat([
-        merged[out_meta].reset_index(drop=True),
-        merged[mpra_info_cols].reset_index(drop=True),
-        aggs_df.reset_index(drop=True),
-        merged[descriptions].reset_index(drop=True)
-    ], axis=1)
-
-    for c in descriptions:
-        if c in final.columns:
-            final[c] = final[c].apply(lambda x: (round(float(x), 5) if pd.notnull(x) else x))
+    
+    if keep_tracks:
+        # Keep track scores (e.g., HyenaDNA ND_* scores, or models with few tracks)
+        final = pd.concat([
+            merged[out_meta].reset_index(drop=True),
+            merged[mpra_info_cols].reset_index(drop=True),
+            aggs_df.reset_index(drop=True),
+            merged[descriptions].reset_index(drop=True)
+        ], axis=1)
+        print(f'Wrote merged MPRA data + aggregations + track scores to: {output_file}')
+        print(f'Columns: {len(out_meta)} metadata + {len(mpra_info_cols)} MPRA + {len(agg_cols)} aggregations + {len(descriptions)} tracks')
+    else:
+        # Don't keep track scores (e.g., Enformer/Basenji with thousands of tracks)
+        final = pd.concat([
+            merged[out_meta].reset_index(drop=True),
+            merged[mpra_info_cols].reset_index(drop=True),
+            aggs_df.reset_index(drop=True)
+        ], axis=1)
+        print(f'Wrote merged MPRA data + aggregations to: {output_file}')
+        print(f'Columns: {len(out_meta)} metadata + {len(mpra_info_cols)} MPRA + {len(agg_cols)} aggregations')
+        print(f'Note: {len(descriptions)} track scores excluded to avoid data duplication (available in model output files)')
 
     final.to_csv(output_file, sep='\t', index=False)
-    print(f'Wrote merged + MPRA + aggs to: {output_file}')
 
 
 if __name__ == '__main__':
