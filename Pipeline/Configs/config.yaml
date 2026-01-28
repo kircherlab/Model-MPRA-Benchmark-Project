@@ -8,7 +8,7 @@ models:
   enformer:
     enabled: true
     aggregation_method: "mean"  # "mean" or "sum" - how to collapse spatial dimension for SAD
-    use_absolute: false  # If true, applies abs() to individual track SADs before aggregation
+    use_absolute: true  # If true, applies abs() to individual track SADs before aggregation
   basenji:
     enabled: true
     aggregation_method: "mean"  # "mean" or "sum" - how to collapse spatial dimension for SAD
@@ -18,7 +18,7 @@ models:
     model_name: "LongSafari/hyenadna-tiny-1k-seqlen-hf"
     sequence_length: 1024
     context_window: 200
-    use_absolute: false  # If true, applies abs() to impacts before computing ND statistics
+    use_absolute: true  # If true, applies abs() to impacts before computing ND statistics
     # model_name: "LongSafari/hyenadna-large-1m-seqlen-hf"
     # sequence_length: 1000000
     # context_window: 100000

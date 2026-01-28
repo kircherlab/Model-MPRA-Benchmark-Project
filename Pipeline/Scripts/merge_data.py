@@ -224,6 +224,9 @@ def main():
     # Get all columns that are not metadata (these are the SAD scores)
     track_cols = [c for c in model_df.columns if c not in meta_cols and not c.startswith('SAD_GLOBAL') and not c.startswith('SAD_ASSAY') and not c.startswith('SAD_BIOSAMPLE')]
     descriptions = track_cols.copy()
+    
+    # Check if these are ND scores (HyenaDNA) - they should NOT be aggregated
+    is_nd_scores = all(c.startswith('ND_') for c in track_cols)
 
     vcf_records = read_vcf_mpra(vcf_file)
     mpra_df = expand_info_columns(vcf_records)
@@ -240,28 +243,44 @@ def main():
         print('Sample MPRA keys:', mpra_df['join_key'].head(5).tolist())
         sys.exit(1)
 
-    aggs_df = compute_aggregations(merged, descriptions, params)
+    # Only compute aggregations for track-based models (Enformer/Basenji), not for ND scores (HyenaDNA)
+    if is_nd_scores:
+        print('Detected ND scores (HyenaDNA) - skipping SAD aggregations')
+        aggs_df = pd.DataFrame()  # Empty dataframe, no aggregations
+    else:
+        aggs_df = compute_aggregations(merged, descriptions, params)
 
     mpra_info_cols = [c for c in mpra_df.columns if c not in ['chrom', 'pos', 'id', 'ref', 'alt', 'join_key']]
     agg_cols = list(aggs_df.columns)
 
     # Determine which track columns to keep
-    # Keep tracks if: (1) there are very few (<20), or (2) they start with ND_ (HyenaDNA scores)
-    keep_tracks = len(descriptions) < 20 or any(d.startswith('ND_') for d in descriptions)
+    # Keep tracks if: (1) there are very few (<20), or (2) they are ND scores (HyenaDNA)
+    keep_tracks = len(descriptions) < 20 or is_nd_scores
     
     # Build final output: metadata + MPRA INFO + aggregations + (optionally) track scores
     out_meta = ['chrom', 'pos', 'id', 'ref', 'alt']
     
     if keep_tracks:
         # Keep track scores (e.g., HyenaDNA ND_* scores, or models with few tracks)
-        final = pd.concat([
-            merged[out_meta].reset_index(drop=True),
-            merged[mpra_info_cols].reset_index(drop=True),
-            aggs_df.reset_index(drop=True),
-            merged[descriptions].reset_index(drop=True)
-        ], axis=1)
-        print(f'Wrote merged MPRA data + aggregations + track scores to: {output_file}')
-        print(f'Columns: {len(out_meta)} metadata + {len(mpra_info_cols)} MPRA + {len(agg_cols)} aggregations + {len(descriptions)} tracks')
+        if aggs_df.empty:
+            # No aggregations (e.g., HyenaDNA)
+            final = pd.concat([
+                merged[out_meta].reset_index(drop=True),
+                merged[mpra_info_cols].reset_index(drop=True),
+                merged[descriptions].reset_index(drop=True)
+            ], axis=1)
+            print(f'Wrote merged MPRA data + model scores to: {output_file}')
+            print(f'Columns: {len(out_meta)} metadata + {len(mpra_info_cols)} MPRA + {len(descriptions)} model scores')
+        else:
+            # With aggregations (models with few tracks)
+            final = pd.concat([
+                merged[out_meta].reset_index(drop=True),
+                merged[mpra_info_cols].reset_index(drop=True),
+                aggs_df.reset_index(drop=True),
+                merged[descriptions].reset_index(drop=True)
+            ], axis=1)
+            print(f'Wrote merged MPRA data + aggregations + track scores to: {output_file}')
+            print(f'Columns: {len(out_meta)} metadata + {len(mpra_info_cols)} MPRA + {len(agg_cols)} aggregations + {len(descriptions)} tracks')
     else:
         # Don't keep track scores (e.g., Enformer/Basenji with thousands of tracks)
         final = pd.concat([

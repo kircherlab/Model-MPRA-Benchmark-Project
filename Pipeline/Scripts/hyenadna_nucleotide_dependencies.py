@@ -81,25 +81,49 @@ def compute_nd_score(model, tokenizer, ref_seq, alt_seq, variant_pos, context_wi
         impacts.append(masked_diff - base_diff)
     
     if len(impacts) == 0:
-        return {'ND_influence_score': 0.0, 'ND_mean': 0.0, 'ND_max': 0.0, 
-                'ND_min': 0.0, 'ND_std': 0.0, 'ND_positions': 0}
+        result = {
+            'ND_influence_score': 0.0, 
+            'ND_mean': 0.0, 
+            'ND_max': 0.0, 
+            'ND_min': 0.0, 
+            'ND_std': 0.0, 
+            'ND_positions': 0
+        }
+        if use_absolute:
+            result.update({
+                'ND_mean_ABS': 0.0,
+                'ND_max_ABS': 0.0,
+                'ND_min_ABS': 0.0,
+                'ND_std_ABS': 0.0
+            })
+        return result
     
     impacts = np.array(impacts)
     
-    # RMS is always calculated from raw (signed) impacts
+    # RMS is always calculated from raw (signed) impacts - always positive
     nd_influence_score = float(np.sqrt(np.mean(impacts**2)))
     
-    # Apply absolute value if requested for other statistics
-    impacts_for_stats = np.abs(impacts) if use_absolute else impacts
-    
-    return {
-        'ND_influence_score': nd_influence_score,  # RMS (always positive)
-        'ND_mean': float(np.mean(impacts_for_stats)),
-        'ND_max': float(np.max(impacts_for_stats)),
-        'ND_min': float(np.min(impacts_for_stats)),
-        'ND_std': float(np.std(impacts_for_stats)),
+    # ALWAYS compute signed statistics
+    result = {
+        'ND_influence_score': nd_influence_score,
+        'ND_mean': float(np.mean(impacts)),
+        'ND_max': float(np.max(impacts)),
+        'ND_min': float(np.min(impacts)),
+        'ND_std': float(np.std(impacts)),
         'ND_positions': len(impacts)
     }
+    
+    # Optionally compute absolute statistics
+    if use_absolute:
+        impacts_abs = np.abs(impacts)
+        result.update({
+            'ND_mean_ABS': float(np.mean(impacts_abs)),
+            'ND_max_ABS': float(np.max(impacts_abs)),
+            'ND_min_ABS': float(np.min(impacts_abs)),
+            'ND_std_ABS': float(np.std(impacts_abs))
+        })
+    
+    return result
 
 # ============================================================================
 # FASTA EXTRACTION

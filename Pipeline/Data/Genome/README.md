@@ -5,7 +5,7 @@ This directory should contain the reference genome files required by the pipelin
 ## Required Files
 
 - `hg38.fa` - Human reference genome (GRCh38/hg38)
-- `hg38.fa.fai` - FASTA index file (created automatically)
+- `hg38.fa.fai` - FASTA index file
 
 ## Download Instructions
 
@@ -19,7 +19,3 @@ gunzip hg38.fa.gz
 # Create FASTA index (required for fast random access)
 samtools faidx hg38.fa
 ```
-
-## Notes
-
-- This README ensures the directory structure is preserved in the repository

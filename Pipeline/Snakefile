@@ -104,7 +104,7 @@ rule merge_data_enformer:
         agg_per_assay=config.get("agg_per_assay", False),
         agg_per_assay_max=config.get("agg_per_assay_max", False),
         agg_per_assay_min=config.get("agg_per_assay_min", False),
-        use_absolute=config.get("use_absolute", False),
+        use_absolute=config["models"]["enformer"].get("use_absolute", False),
     conda:
         "Configs/analysis-env.yaml"
     script:
@@ -219,7 +219,7 @@ rule merge_data_basenji:
         agg_per_assay=config.get("agg_per_assay", False),
         agg_per_assay_max=config.get("agg_per_assay_max", False),
         agg_per_assay_min=config.get("agg_per_assay_min", False),
-        use_absolute=config.get("use_absolute", False),
+        use_absolute=config["models"]["basenji"].get("use_absolute", False),
     conda:
         "Configs/basenji-env.yaml"
     script:
@@ -301,7 +301,7 @@ rule merge_data_hyenadna:
         agg_per_assay=config.get("agg_per_assay", False),
         agg_per_assay_max=config.get("agg_per_assay_max", False),
         agg_per_assay_min=config.get("agg_per_assay_min", False),
-        use_absolute=config.get("use_absolute", False),
+        use_absolute=config["models"]["hyenadna"].get("use_absolute", False),
     conda:
         "Configs/analysis-env.yaml"
     script:
