@@ -335,6 +335,120 @@ rule generate_plots_hyenadna:
 
 
 # =============================================================================
+# ALPHAGENOME RULES
+# =============================================================================
+
+rule run_alphagenome:
+    input:
+        script="Scripts/alphagenome_integration.py",
+        vcf="Data/VCF/filtered_variants.vcf.gz"
+    output:
+        "results/alphagenome/alphagenome_scores.csv"
+    params:
+        organism=config.get("alphagenome", {}).get("organism", "human"),
+        sequence_length=config.get("alphagenome", {}).get("sequence_length", "2KB"),
+        chunk_size=config.get("alphagenome", {}).get("chunk_size", 100),
+        scorers=config.get("alphagenome", {}).get("scorers", ""),
+        api_key=config.get("alphagenome", {}).get("api_key", ""),
+        score_column=config.get("alphagenome", {}).get("score_column", "quantile_score"),
+        include_biosample=config.get("alphagenome", {}).get("include_biosample", True),
+        aggregation=config["models"]["alphagenome"].get("aggregation_method", "mean"),
+        use_absolute_flag="--use_absolute" if config["models"]["alphagenome"].get("use_absolute", False) else "",
+        no_biosample_flag="" if config.get("alphagenome", {}).get("include_biosample", True) else "--no_biosample",
+        scorers_arg=("--scorers " + config.get("alphagenome", {}).get("scorers", "")) if config.get("alphagenome", {}).get("scorers", "") else "",
+        api_key_env=config.get("alphagenome", {}).get("api_key_env", "ALPHAGENOME_API_KEY")
+    log:
+        "logs/alphagenome/alphagenome.log"
+    conda:
+        "Configs/alphagenome-env.yaml"
+    shell:
+        """
+        mkdir -p results/alphagenome/raw logs/alphagenome
+
+        API_KEY_VALUE="{params.api_key}"
+        API_KEY_VAR="{params.api_key_env}"
+        if [ -z "$API_KEY_VALUE" ]; then
+            API_KEY_VALUE="${{!API_KEY_VAR}}"
+        fi
+        if [ -z "$API_KEY_VALUE" ]; then
+            echo "ERROR: no AlphaGenome API key found." >&2
+            echo "Set alphagenome.api_key in Configs/config.yaml or export $API_KEY_VAR." >&2
+            exit 1
+        fi
+
+        python {input.script} score \
+            --vcf {input.vcf} \
+            --api_key "$API_KEY_VALUE" \
+            --organism {params.organism} \
+            --sequence_length {params.sequence_length} \
+            --chunk_size {params.chunk_size} \
+            --output_raw_dir results/alphagenome/raw \
+            --raw_combined results/alphagenome/alphagenome_raw_combined.tsv.gz \
+            {params.scorers_arg} 2>&1 | tee {log}
+
+        python {input.script} finalize \
+            --raw_input results/alphagenome/raw \
+            --pattern "*_alphagenome_raw.tsv.gz" \
+            --out_csv {output} \
+            --score_column {params.score_column} \
+            --aggregation {params.aggregation} \
+            --vcf_for_ids {input.vcf} \
+            {params.use_absolute_flag} \
+            {params.no_biosample_flag} 2>&1 | tee -a {log}
+        """
+
+
+rule merge_data_alphagenome:
+    input:
+        model_scores="results/alphagenome/alphagenome_scores.csv",
+        vcf="Data/VCF/filtered_variants.vcf.gz"
+    output:
+        "results/alphagenome/merged_data.tsv"
+    params:
+        agg_global=config.get("agg_global", False),
+        agg_global_max=config.get("agg_global_max", False),
+        agg_global_min=config.get("agg_global_min", False),
+        agg_per_biosample=config.get("agg_per_biosample", False),
+        agg_per_biosample_max=config.get("agg_per_biosample_max", False),
+        agg_per_biosample_min=config.get("agg_per_biosample_min", False),
+        agg_per_assay=config.get("agg_per_assay", False),
+        agg_per_assay_max=config.get("agg_per_assay_max", False),
+        agg_per_assay_min=config.get("agg_per_assay_min", False),
+        use_absolute=config["models"]["alphagenome"].get("use_absolute", False),
+    conda:
+        "Configs/analysis-env.yaml"
+    script:
+        "Scripts/merge_data.py"
+
+
+rule generate_plots_alphagenome:
+    input:
+        merged_data="results/alphagenome/merged_data.tsv"
+    output:
+        corr_plot="results/alphagenome/plots/correlation.png",
+        roc_plot="results/alphagenome/plots/roc_performance_analysis.png",
+        metrics_csv="results/alphagenome/plots/performance_metrics.csv"
+    params:
+        exclude_min=config.get("exclude_min", None),
+        exclude_max=config.get("exclude_max", None)
+    conda:
+        "Configs/analysis-env.yaml"
+    shell:
+        """
+        mkdir -p results/alphagenome/plots
+        EXCLUDE_ARG=""
+        if [ "{params.exclude_min}" != "None" ] && [ "{params.exclude_max}" != "None" ]; then
+            EXCLUDE_ARG="--exclude_range {params.exclude_min} {params.exclude_max}"
+        fi
+        python Scripts/generate_plots.py \
+            --merged_data {input.merged_data} \
+            --out_corr {output.corr_plot} \
+            --config Configs/config.yaml \
+            $EXCLUDE_ARG
+        """
+
+
+# =============================================================================
 # TRACK-SPECIFIC COMPARISON PLOTS
 # =============================================================================
 # Generate comparison plots for specific tracks between Enformer and Basenji

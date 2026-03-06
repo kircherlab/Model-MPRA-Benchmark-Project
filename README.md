@@ -58,7 +58,21 @@ gunzip hg38.fa.gz
 samtools faidx hg38.fa
 ```
 
-If you already have the hg38 fasta and index file (they need to be in the same directory), update the `fasta` path in `Configs/config.yaml`. 
+If you already have the hg38 fasta and index file (they need to be in the same directory), update the `fasta` path in `Configs/config.yaml`.
+
+```bash
+# For AlphaGenome: make sure that your API key can be accessed by the pipeline:
+export ALPHAGENOME_API_KEY="..."
+```
+
+You can also set the key directly in `Pipeline/Configs/config.yaml` under:
+
+```yaml
+alphagenome:
+  api_key: "..."
+```
+
+If `alphagenome.api_key` is empty, the pipeline falls back to `alphagenome.api_key_env`.
 
 ## Configuration
 

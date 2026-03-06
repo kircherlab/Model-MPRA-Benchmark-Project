@@ -10,7 +10,7 @@ models:
     aggregation_method: "mean"  # "mean" or "sum" - how to collapse spatial dimension for SAD
     use_absolute: true  # If true, applies abs() to individual track SADs before aggregation
   basenji:
-    enabled: true
+    enabled: false
     aggregation_method: "mean"  # "mean" or "sum" - how to collapse spatial dimension for SAD
     use_absolute: false  # If true, applies abs() to individual track SADs before aggregation
   hyenadna:
@@ -22,6 +22,23 @@ models:
     # model_name: "LongSafari/hyenadna-large-1m-seqlen-hf"
     # sequence_length: 1000000
     # context_window: 100000
+  alphagenome:
+    enabled: True
+    use_absolute: true  # Apply abs() before final per-track aggregation in finalize step
+    aggregation_method: "mean"  # mean|median|max|sum for duplicate rows per variant+track
+
+# =============================================================================
+# ALPHAGENOME CONFIGURATION
+# =============================================================================
+alphagenome:
+  organism: "human"            # human|mouse
+  sequence_length: "1MB"       # 16KB|100KB|500KB|1MB
+  chunk_size: 100
+  scorers: ""   # comma-separated scorer keys; empty = all (recommended) alternatives e.g. "cage,dnase,atac"
+  score_column: "quantile_score"  # preferred from raw AlphaGenome output
+  include_biosample: true       # if true: output track names as ASSAY:BIOSAMPLE
+  api_key: ""  # optional: put API key directly here; if empty, uses api_key_env
+  api_key_env: "ALPHAGENOME_API_KEY"
 
 
 
@@ -84,7 +101,7 @@ track_plots:
   enabled: false
   tracks:
     - "DNASE:HepG2"
-    - "CHIP:H3K27me3:HepG2" 
+    - "CHIP:H3K27me3:HepG2"
     - "CHIP:H3K4me3:HepG2"
     - "CHIP:H3K9ac:HepG2"
     # Add more tracks as needed
@@ -103,23 +120,23 @@ exclude_max:  "None"
 # Higher values = more significant
 significance:
   use_significance_coloring: true  # Enable/disable significance-based coloring in plots
-  
+
   # Which statistic to use for significance determination
   # Options: "PVAL" (p-value), "QVAL" (FDR-corrected q-value), "both" (require both)
   statistic: "QVAL"
-  
+
   # Threshold for significance (in -log10 scale)
   # Common values:
   #   1.3 = p/q < 0.05 (-log10(0.05) ≈ 1.3)
   #   2.0 = p/q < 0.01 (-log10(0.01) = 2.0)
   #   3.0 = p/q < 0.001 (-log10(0.001) = 3.0)
   threshold: 1.3  # Default: FDR < 0.05
-  
+
   # Optional: additional threshold for stricter significance
   # Only used if statistic is "both"
   pval_threshold: 1.3  # -log10(0.05)
   qval_threshold: 1.3  # -log10(0.05)
-  
+
   # Plotting colors
   colors:
     significant: "#E74C3C"      # Red for significant variants

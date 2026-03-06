@@ -1,16 +1,8 @@
-# alphagenome-env.yaml
-# Conda environment for AlphaGenome variant scoring
-# AlphaGenome is an API-based service requiring internet connection and API key
-
 name: alphagenome-env
 channels:
   - conda-forge
-  - defaults
 dependencies:
   - python=3.11
-  - pandas
-  - numpy
-  - tqdm
-  - pip
+  - pip>=24
   - pip:
-    - alphagenome
+    - alphagenome>=0.6.1
