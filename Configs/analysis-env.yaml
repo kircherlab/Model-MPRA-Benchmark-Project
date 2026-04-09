@@ -1,0 +1,17 @@
+# envs/analysis.yaml
+# Conda environment for data merging and plotting.
+# This uses standard data science and plotting libraries.
+name: analysis-env
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.9
+  - pandas
+  - seaborn
+  - matplotlib
+  - scikit-learn
+  - scipy
+  - openpyxl
+  - pyyaml
+  - yaml

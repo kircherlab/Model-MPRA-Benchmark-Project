@@ -1,0 +1,52 @@
+# =============================================================================
+# Pipeline v2 — HepG2 (full run, unfiltered)
+# =============================================================================
+experiment_name: "hepg2"
+
+# ── Input data ───────────────────────────────────────────────────────────────
+vcf: "Data/VCF/IGVFFI4378PZYI.vcf.gz"
+fasta: "Data/Genome/hg38.fa"
+targets: "Data/targets_human.txt"
+filter_vcf: false
+
+# ── Models ──────────────────────────────────────────────────────────────────
+models:
+  enformer:
+    enabled: true
+
+  basenji:
+    enabled: true
+
+  hyenadna:
+    enabled: true
+    model_name: "LongSafari/hyenadna-tiny-1k-seqlen-hf"
+    sequence_length: 1024
+    context_window: 200
+
+  alphagenome:
+    enabled: false  # managed manually to avoid quota contention
+    api_key: "AIzaSyBe6ZgaSKTn8IVTAYFbyYHY8mHGvYcekZU"
+    window_size: 16384
+    max_workers: 4
+    ontology_terms: []
+    scorers:
+      - "ATAC"
+      - "DNASE"
+      - "CAGE"
+      - "CHIP_HISTONE"
+      - "RNA_SEQ"
+
+  dnabert2:
+    enabled: true
+    model_name: "zhihan1996/DNABERT-2-117M"
+    sequence_length: 1024
+    context_window: 200
+
+# ── Basenji model paths ─────────────────────────────────────────────────────
+basenji:
+  params: "Models/Basenji/basenji/manuscripts/cross2020/params_human.json"
+  model: "Models/Basenji/basenji/manuscripts/cross2020/model_human.h5"
+  script: "Models/Basenji/basenji/bin/basenji_sad.py"
+  targets: "Models/Basenji/basenji/manuscripts/cross2020/targets_human.txt"
+  rc: true
+  shifts: "0"

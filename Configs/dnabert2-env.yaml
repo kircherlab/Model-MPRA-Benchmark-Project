@@ -1,0 +1,26 @@
+# dnabert2-env.yaml
+# Conda environment for DNABERT-2 nucleotide dependency scoring
+# DNABERT-2 uses the HuggingFace transformers library with BPE tokenization
+
+name: dnabert2
+channels:
+  - pytorch
+  - nvidia
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.9
+  - pytorch
+  - pytorch-cuda=11.8
+  - pandas
+  - numpy
+  - scipy
+  - pyfaidx
+  - pyarrow
+  - pip
+  - pip:
+    - transformers>=4.28
+    - safetensors
+    - einops
+    # triton is intentionally NOT installed - when absent, DNABERT-2 automatically
+    # uses standard PyTorch attention instead of Flash Attention

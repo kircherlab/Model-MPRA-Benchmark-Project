@@ -1,0 +1,210 @@
+A Unified Framework for Evaluating Regulatory Variant Predictors
+
+1. Abstract
+
+Objective: Briefly introduce the goal of benchmarking DNA sequence models against MPRA data.
+Methods: Mention the models and datasets used, along with the evaluation metrics.
+Results: Highlight key findings, such as the performance of different model classes.
+Conclusion: Summarize the implications for model selection in genomics studies.
+
+
+2. Introduction
+
+Background: Discuss the importance of understanding genetic regulatory elements and the role of MPRA in measuring variant effects.
+Problem Statement: Emphasize the need to benchmark DNA sequence models against experimental data.
+Significance: Highlight the implications for genomics research and predictive model development.
+
+
+3. Methods
+
+Model Selection: Detail the chosen models and their classes (e.g., genome-wide predictors, variant scorers).
+Data Collection: Describe the MPRA datasets used, including plasmid and lenti assays.
+Preprocessing: Explain data normalization and model input preparation.
+Aggregation Methods, Distribution Normalization, Outlier Removal 
+Evaluation Metrics or different baselines as CADD: Define the metrics used (e.g., Spearman correlation, AUROC/AUPRC).
+Statistical Analysis: Outline any statistical methods employed to compare model performances.
+
+4. Results
+
+Performance Comparison: Present tables or figures showing model performance across different metrics.
+Model Class Comparisons: Foundation Model (DNABert, HyenaDNA) vs sequence 2 function. (Wie hilfreich ist das Trainieren auf experimentellen Assays direkt?)
+Cell-Type Specificity: Discuss performance variations across cell types.
+Assay Type Comparisons: Compare model accuracy on plasmid vs. lenti assays.
+Unexpected Findings: Note any surprising results or trends.
+
+5. Discussion
+
+Interpretation: Interpret the results, focusing on the strengths and weaknesses of different models.
+Implications: Discuss the broader implications for model selection in genomics studies.
+
+6. Conclusion
+
+Summary: Concisely summarize the key findings and their significance.
+Future Research: Propose potential avenues for further investigation.
+
+
+Key Comparisons
+Model Class Comparisons: Evaluate the performance of different model classes to understand their strengths and weaknesses.
+Cell-Type Specificity: Investigate how well models perform across different cell types.
+Assay Type Comparisons: Compare model performance on plasmid vs. lenti MPRA assays.
+Sequence Context Effects: Examine the influence of sequence length and positioning on model predictions.
+sequence length: 
+Alphagenome: 1M  vs 2KB (aktuelle version: 16KB)
+DNABert: max xy, min: 2KB
+HyenaDNA: max xy, min: 1KB
+for nucleotide dependency: the score is diluted because of the model size
+position on model predictions
+Wie beantworten wir Frage: Funktioniert die Varianteneffektvorhersage am besten, wenn die Variante im Zentrum der Sequenz liegt?
+? what is the goal: we tried different things and different results were shown
+Für jede Variante, die innerhalb von e.g. 500 bp: Zentrierung um TSS
+Baseline Comparisons: Assess the added value of complex models over simpler baselines.
+Regression of different variant scores => which adds value which does not? Do they learn the same?
+
+Performance in Different Genomic Regions:
+Assess model performance in promoters versus enhancers.
+TODO: check how many promoters still exists in e.g. Proxreg
+Investigate how well models predict regulatory effects in various genomic contexts.
+Introduction
+Understanding the function and regulation of genetic elements is fundamental to advancing our knowledge of genetic mechanisms. Regulatory elements in that regard, such as promoters and enhancers, play a crucial role in controlling and influencing gene expression. Alterations in these elements can lead to regulatory abnormalities and diseases. The ability to accurately predict the effect of variations within these regulatory elements is essential for interpreting and understanding the molecular basis of phenotypes, traits, and diseases. 
+
+Massively Parallel Reporter Assays (MPRAs) are a powerful technique for measuring this exact regulatory activity of DNA sequences in a high-throughput manner. Thousands of DNA sequences can be measured in parallel, generating quantitative regulatory effect data of all tested sequences. Furthermore, MPRAs are highly flexible and can be adjusted for cellular contexts, developmental states, and sequence architecture (e.g. Cis-regulatory Context). 
+
+In parallel with the development of MPRAs, computational models have been developed to predict the function and effect of DNA sequences by utilizing the wide abundance of today's genomic research data to train large machine learning models. Models such as Enformer, Basenji2 and AlphaGenome present diverse approaches to predict DNA function, each with unique strength and limitations. While these models have shown promise in various applications and are well established within the scientific community, their performance in predicting regulatory effects as measured by MPRAs has not been comprehensively benchmarked. 
+
+Benchmarking these models is crucial for understanding their accuracy and reliability in predicting variant effects. Therefore, a systematic comparison of model performance, strength and limitations, can identify the most accurate models, and guide their application within the scientific community. Furthermore, benchmarking can provide insights into model performance influencing factors, which could be cellular context, type of regulatory elements and so on. 
+
+This paper aims to benchmark state-of-the-art Models against experimental MPRA data to evaluate their ability to predict regulatory variants. And by comparing model predictions within and between each other, we seek to understand influential factors, differences in performance, advantages and limitations. 
+
+
+
+
+
+
+
+
+Methodes
+To benchmark the performance of DNA Sequence Models in predicting regulatory variant effects, we conducted a comprehensive analysis using publicly and IGVF generated MPRA datasets and state-of-the-art models. The following section will provide details about the datasets, models, preprocessing stepsThese datasets were preprocessed to extract variant-level measurements, including effect sizes, fold changes and significance values. 
+
+Datasets
+As part of the IGVF Consortium, we have generated multiple MPRA libraries across different cell-type contexts and specific biological settings, each originally designed to characterize the regulatory effect of genetic variants. These libraries are part of larger research projects and were now gathered to serve as a baseline for evaluating computational sequence models. Each library provides variant-level measurements of regulatory activity quantified as the log2-Fold Change (log2FC) between the alternate and reference allele (log2(ALT/REF)) for multiple thousands of single-nucleotide variants (SNVs).
+
+Three MPRA datasets were included in this study. The HEK293T and HepG2 dataset were generated using the IGVF lentiviral MPRA framework, covering 147,532 and 147,485 tested variants respectively. The NGN2 dataset captures regulatory activity in neuronal differentiation context and consists of 38,968 tested allelic effects. 
+
+
+NGN2 MPRA library design  
+The NGN2 MPRA library was designed to investigate regulatory variation in neuronal contexts and focuses on cis-regulatory elements located near disease-associated genes. Genes were selected from four groups representing different biological and clinical contexts: high-confidence autism spectrum disorder (ASD) genes curated by SFARI, congenital heart disease (CHD) genes collected from the literature, clinically actionable genes curated by the Center for Actionable Variant Analysis (CAVA), and a set of randomly selected genes serving as controls. Gene annotations and transcription start sites were obtained from GENCODE v42. For each gene, a 50 kb window surrounding the union of all annotated transcription start sites was defined and candidate cis-regulatory elements (cCREs) were selected from the ENCODE SCREEN registry. 
+Standing human genetic variation within these regions was obtained from gnomAD v3.1.2. With readouts for over 60% of the existing common variation (allele frequency >1%) were included in the library. Rare and singleton variants were prioritized using predictions from the deep learning sequence model Enformer. Variants were ranked based on the predicted change in chromatin accessibility (ΔDNase) between reference and alternate alleles. For each gene group and variant class (rare and singleton), variants were selected to represent both strongly predicted regulatory effects and control distributions. To avoid technical artifacts in the assay, sequences containing restriction sites, long homopolymers, extensive simple repeats, transcription start sites, or CTCF binding sites were excluded. The resulting NGN2 MPRA library contains tens of thousands of variants located within candidate regulatory elements associated with disease-relevant genes, enabling the systematic evaluation of sequence-based regulatory models in a neuronal cellular context.
+
+Data Preprocessing
+
+Models
+We evaluated five DNA sequence models - three sequence-to-function models and two DNA foundation models, chosen for their diverse functionalities and popularity in the field of genomic research. 
+
+Enformer is a Transformer-based deep learning model developed by DeepMind and Calico. It predicts 5,313 functional genomic tracks across multiple cell-types and tissues, including DNASE-seq, CAGE, and ChIP-Seq signals from sequence with a 128 bp resolution within a 393 kb sequence window. It was trained on public human and mouse data from ENCODE, FANTOM and Roadmap. It is a widely used tool for variant effect prediction in non-coding regions. Specific fine-tuned ENFORMER models are available and used. 
+
+Basenji2 is a dilated residual convolutional neural network that similarly predicts multi-track functional signals from DNA sequence at 128bp resolution. It was trained on ENCODE and FANFOM5 data across a wide set of cell-types and tissues, sharing the same 5313 track output as Enformer. Basenji2’s is the predecessor to Enformer and its sequence window size is around ~131kb. 
+
+AlphaGenome is the recently released model from DeepMind, which is able to predict a wide range of regulatory signals, including ATAC-Seq, PRO-CAP, RNA-Seq (and many more) from a 1Mb input sequence for a wide range of different cell-types and tissue. Depending on the predicted signal, resolution can vary between 1bp - 2,048 bp (e.g. for DNA contact maps) AlphaGenome itself includes an API accessible variant scorer as part of the tools utility set, which is used “as is” for our analysis.
+
+HyenaDNA is a long-range DNA foundation model - pretrained on the human reference genome - which is able to process up to 1 Mb of sequence at once. As an unsupervised model, it produces sequence embeddings rather than explicit functional predictions, which then can be used to calculate a direct influence introduced by the variance in direct comparison to reference sequence. 
+
+DNABERT-2 is also a DNA foundation model pretrained on multi-species genomic sequences. With 117M parameters it is able to capture sequence-level representations without explicit functional supervision. 
+
+
+
+Model Variant Effect Calculation
+
+For the three sequence-to-function models, variant effects were quantified using the SNP-Allelic Difference (SAD) score. For each SNV, the model predicts the regulatory activity for both the reference (REF) and alternative (ALT) allele sequence. The SAD score is then defined as: 
+
+SAD = f(MEAN(ALT)) - f(MEAN(REF))
+
+, where f(.) reflects model predictions aggregated over spatial bins. This generates one score per genomic track, capturing the predicted direction and influence of the variants regulatory effect.
+Evaluation Metrics
+
+Spearman Correlation 
+Area under the ROC Curve 
+Area under the Precision-Recall Curve
+Directional Accuracy 
+
+
+Results
+Within this benchmark study, we are diving into an in-depth comparison between model-performance and our baseline. Questions that will be answered, are as follows: 
+
+
+Point 1: What data do we use and why it is better compared to the saturation mutagenesis 2019 (elemente conservation)
+Point 1a: Which genes are around the variants? Which genes are cell-type specific different? 
+
+
+Q1: Model Performance Comparison
+Overarching story: Selling: first to compare models on MPRA data from two cell types
+Overarching story: Link back to 2019 Saturation Mutagenesis => This data is not good, because limited number of elements and only a biased subset, here we show an sind nicht gut geeignet weil
+
+Q1.1. How do supervised sequence-to-function models compare to unsupervised DNA foundation models in predicting MPRA variant effects?
+With prior knowledge => linking (others did this already) 
+Compare Correlation Pearson / Spearman 
+
+Q1.2: Do we observe a difference in assay prediction performance between sequence-to-function models?
+Martin: Story: do we find the best assay and then take chromBPNet to show similar performance? What about other assay prediction models ?
+Using a linear model to integrate the assays into one score
+
+Q1.3: Which specific assay types are most informative for predicting MPRA log2FC? 
+→ any assay with higher than usual correlation?
+
+Q1.4. Does newer architecture outperform older ones despite predicting the same type of regulatory readout (SAD Scores)?
+
+Q1.5: How does model performance vary across different MPRA effect size bins? 
+→ Do models correctly identify strong activators/repressors better than moderate effects? 
+→ one can use the extreme points of the distribution instead of bins as well 
+
+Q1.6: Can nucleotide dependency scores capture variant directionality, or do they only detect the magnitude of disruption introduced by the variant?
+
+Q1.7: How does the context window size affect predictive performance? 
+→ Centering the context around the canonical TSS for PLS and cCRE variant effect predictions vs centering on the variant
+
+→  For haploinsufficient genes: How does the performance of the same Variants change when the context window is centered 400kb upstream the TSS vs centered 400kb downstream the TSS vs centered on the canonical TSS?
+→ How TAD-context sensitive is the prediction? Centering within the center of a TAD vs 100 sampled random positions of the TAD?
+
+Q1.8: How well do model scores classify variants as functional vs. non-functional?  When using significant testing as threshold and when using effect size thresholds?
+
+
+Q2: Cell-Type Specificity
+Q2.1: Does matching model tracks to MPRA cell type improve prediction compared to using a mean of the predictions across all tracks ?
+
+Q2.2: Can we actually predict the cell-type of our baseline data using the predictive values of sequence-to-function models? (Which set of biosamples is most informative for the prediction of HepG2 and NGN2…?)
+
+Q2.3. How consistent are different models in rankings across different cell-type contexts ?
+→ HEK293 vs. HepG2 vs. NGN2 (Do I understand correctly: For variants which are tested in multiple cell-types and which are only significant in e.g. HEK293: do we see that the predictions are high in HEK293 and low in HepG2?)
+
+Q3: Variant Properties 
+Q3.1:Does the genomic context influence model accuracy?
+→ promoter vs. enhancer, distance to nearest TSS, and so on 
+Q3.2: Does the knowledge from the MPRA region affect the model predictions on variant effects
+→ MPRA active region vs not-active 
+
+Q3.3: Are there variants within specific transcription factor binding motifs where models perform better?
+
+
+
+Q4: Practical Considerations
+Q4.1: What are the computational costs of each model and how do they scale with variant count and/or sequence context? How fast are the models in predicting variants?
+Q4.2: How big is the performance increase for fine-tuning? (Would be probably a bit of additional work to get from model output to fine-tuning for each model)
+
+
+
+
+
+
+
+
+
+Wie gut funktionieren die unterschiedlichen Modelle ohne weiteres Fine-tuning für den Endnutzer? (Diskreminierung zwischen 
+Performance Comparison: Present tables or figures showing model performance across different metrics.
+
+Model Class Comparisons: Foundation model (DNABert, HyenaDNA) vs sequence 2 function. (Wie hilfreich ist das trainieren auf experimentellen Assays direkt?)
+Cell-Type Specificity: Discuss performance variations across cell types.
+Assay Type Comparisons: Compare model accuracy on plasmid vs. lenti assays.
+
+
+Unexpected Findings: Note any surprising results or trends.
+
+

@@ -1,0 +1,19 @@
+name: enformer-env
+channels:
+  - conda-forge
+  - bioconda
+  - nvidia  # Added for CUDA packages
+dependencies:
+  - python=3.9
+  - tensorflow=2.13  # Updated for CUDA 13.0 compatibility
+  - tensorflow-hub
+  - pandas
+  - numpy
+  - pyarrow
+  - kipoiseq
+  - pyfaidx
+  - cudatoolkit=11.8  # CUDA toolkit for GPU support
+  - cudnn=8.9  # Updated cuDNN version available in nvidia channel
+  - pip
+  - pip:
+    - tf-keras-vis 

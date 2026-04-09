@@ -1,0 +1,17 @@
+# alphagenome-env.yaml
+# Conda environment for AlphaGenome variant scoring
+# AlphaGenome is an API-based service requiring internet connection and API key
+# API Key: set ALPHAGENOME_API_KEY environment variable
+
+name: alphagenome-env
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - pandas
+  - numpy
+  - tqdm
+  - pip
+  - pip:
+    - alphagenome>=0.5.0

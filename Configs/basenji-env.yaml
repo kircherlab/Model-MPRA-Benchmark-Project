@@ -1,0 +1,33 @@
+name: basenji
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.9
+  - numpy<2
+  - h5py
+  - pyarrow
+  - pysam
+  - pybigwig
+  - pandas
+  - scipy
+  - matplotlib
+  - seaborn
+  - tqdm
+  - natsort
+  - intervaltree
+  - joblib
+  - networkx
+  - pillow
+  - pybedtools
+  - scikit-learn
+  - statsmodels
+  - tabulate
+  - cudatoolkit=11.8
+  - cudnn=8.9
+  - pip
+  - pip:
+    - tensorflow==2.13.1 
+    - qnorm
+    - cooler
+    - cooltools
