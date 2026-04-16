@@ -75,8 +75,7 @@ parser.add_argument(
     default=["ATAC", "DNASE", "CAGE", "CHIP_HISTONE", "RNA_SEQ"],
     help="Which recommended variant scorers to use (default: ATAC DNASE CAGE CHIP_HISTONE RNA_SEQ)",
 )
-# NOTE: use_absolute removed from scoring. Raw signed values are always output.
-# Post-processing (merge_data.py) can apply absolute values if needed.
+
 parser.add_argument(
     "--ontology_terms",
     nargs="*",

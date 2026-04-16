@@ -28,7 +28,7 @@ models:
 
   alphagenome:
     enabled: true
-    api_key: ""  # set via environment variable or local override
+    api_key: ""
     window_size: 16384
     max_workers: 4
     ontology_terms: []
@@ -38,9 +38,11 @@ models:
       - "CAGE"
       - "CHIP_HISTONE"
       - "RNA_SEQ"
+      # - "CHIP_TF"
+
 
   dnabert2:
-    enabled: true
+    enabled: false
     model_name: "zhihan1996/DNABERT-2-117M"
     sequence_length: 1024
     context_window: 200

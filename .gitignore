@@ -1,1 +1,21 @@
+# Environments
 .venv/
+venv/
+.env
+.env.*
+*.env
+
+# Python/cache/temp artifacts
+__pycache__/
+*.py
+*.log
+*.tmp
+*.swp
+
+# Pipeline outputs and checkpoints
+results/
+**/results/
+*.ckpt/
+**/*.ckpt/
+Archive/
+**/.snakemake/

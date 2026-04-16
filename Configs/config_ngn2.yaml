@@ -24,8 +24,8 @@ models:
     context_window: 200
 
   alphagenome:
-    enabled: false  # managed manually to avoid quota contention
-    api_key: ""  # set via environment variable or local override
+    enabled: true
+    api_key: ""
     window_size: 16384
     max_workers: 4
     ontology_terms: []
