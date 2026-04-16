@@ -25,9 +25,11 @@ Data/Genome/*.fa
 Data/Genome/*.fa.gz
 Data/Genome/*.fai
 
-# VCF input files (large, obtain separately)
+# VCF files — ignore uncompressed, backups, and pipeline-generated filtered files
 Data/VCF/*.vcf
-Data/VCF/*.vcf.gz
+Data/VCF/*.original
+Data/VCF/*_filtered.vcf.gz
+Data/VCF/filtered_variants.vcf.gz
+Data/VCF/test_filtered.vcf.gz
 Data/VCF/*.vcf.gz.tbi
 Data/VCF/*.vcf.gz.csi
-Data/VCF/*.original
