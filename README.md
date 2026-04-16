@@ -80,10 +80,18 @@ models:
     enabled: true
 ```
 
-To run a quick test on 10 variants:
+### Test run
+
+`Configs/config_test.yaml` filters down to 10 variants and runs all non-API models — useful for verifying the environment before a full run:
 
 ```bash
-snakemake -j 1 --configfile Configs/config_test.yaml --use-conda
+# Dry run
+snakemake -n --configfile Configs/config_test.yaml --rerun-triggers mtime
+
+# Full test run on a GPU node
+srun --cpus-per-task=4 --mem=32G --gres=gpu:1 --time=4:00:00 \
+  snakemake -j 1 --configfile Configs/config_test.yaml \
+  --rerun-triggers mtime --use-conda
 ```
 
 ---
@@ -107,11 +115,68 @@ All scoring scripts support **crash-safe checkpointing**: interrupted runs resum
 
 ---
 
-## AlphaGenome (API-based)
+## Running scoring scripts standalone
 
-AlphaGenome queries the Google DeepMind public API and requires an API key. It is disabled by default to avoid quota issues when running other models in parallel.
+All scoring scripts have a full CLI and can be run outside Snakemake. This is useful for resuming crashed runs or running models on separate GPUs in parallel.
 
-Set your key in the config and enable it separately:
+To get the Snakemake-managed conda environment paths:
+```bash
+ls .snakemake/conda/
+```
+Or create environments once with `--create-envs-only`, then activate by path.
+
+**Enformer**
+```bash
+conda activate .snakemake/conda/<enformer-hash>
+python Scripts/enformer_scoring.py \
+  --vcf Data/VCF/IGVFFI4134MFLL.vcf.gz \
+  --fasta Data/Genome/hg38.fa \
+  --targets Data/targets_human.txt \
+  --out results/<run_id>/enformer/enformer_scores.parquet \
+  --print_every 50
+```
+
+**Basenji2**
+```bash
+conda activate .snakemake/conda/<basenji-hash>
+python Scripts/basenji_scoring.py \
+  --vcf Data/VCF/IGVFFI4134MFLL.vcf.gz \
+  --fasta Data/Genome/hg38.fa \
+  --params Models/Basenji/basenji/manuscripts/cross2020/params_human.json \
+  --model Models/Basenji/basenji/manuscripts/cross2020/model_human.h5 \
+  --basenji_script Models/Basenji/basenji/bin/basenji_sad.py \
+  --targets Models/Basenji/basenji/manuscripts/cross2020/targets_human.txt \
+  --out_dir results/<run_id>/basenji/basenji_sad_output \
+  --out results/<run_id>/basenji/basenji_scores.parquet \
+  --rc --shifts 0
+```
+
+**HyenaDNA**
+```bash
+conda activate .snakemake/conda/<hyenadna-hash>
+python Scripts/hyenadna_scoring.py \
+  --vcf Data/VCF/IGVFFI4134MFLL.vcf.gz \
+  --fasta Data/Genome/hg38.fa \
+  --out results/<run_id>/hyenadna/hyenadna_scores.parquet \
+  --model "LongSafari/hyenadna-tiny-1k-seqlen-hf" \
+  --sequence_length 1024 --context_window 200 --print_every 50
+```
+
+**DNABERT-2**
+```bash
+conda activate .snakemake/conda/<dnabert2-hash>
+pip uninstall -y triton 2>&1 | head -5 || true   # avoid triton conflicts
+python Scripts/dnabert2_scoring.py \
+  --vcf Data/VCF/IGVFFI4134MFLL.vcf.gz \
+  --fasta Data/Genome/hg38.fa \
+  --out results/<run_id>/dnabert2/dnabert2_scores.parquet \
+  --model "zhihan1996/DNABERT-2-117M" \
+  --sequence_length 1024 --context_window 200 --print_every 10
+```
+
+**AlphaGenome** (API-based — requires Google DeepMind API key)
+
+AlphaGenome queries the public API and is disabled by default to avoid quota issues when running other models in parallel. Set your key in the config:
 
 ```yaml
 models:
@@ -120,10 +185,9 @@ models:
     api_key: "YOUR_KEY_HERE"
 ```
 
-Or run it directly:
-
+Or run directly:
 ```bash
-conda activate <alphagenome-env>
+conda activate .snakemake/conda/<alphagenome-hash>
 python Scripts/alphagenome_scoring.py \
   --vcf Data/VCF/IGVFFI4134MFLL.vcf.gz \
   --out results/<run_id>/alphagenome/alphagenome_scores.parquet \
