@@ -6,143 +6,155 @@ Benchmarking DNA sequence-to-function models against MPRA variant-effect measure
 
 ## Overview
 
-The pipeline has two stages:
+The pipeline scores genetic variants from a VCF through multiple sequence-to-function models and produces tidy Parquet files of per-variant, per-track scores.
 
-1. **Scoring** (`Snakefile`) — runs each model on a VCF and produces a tidy Parquet of per-variant, per-track scores.
-2. **Analysis** (`Scripts/unified_celltype_analysis.py`) — loads the Parquets and computes correlation metrics against MPRA ground truth, producing figures and CSVs.
-
-### Models supported
+### Models
 
 | Model | Type | Output |
 |---|---|---|
 | Enformer | Track-based (SAD) | Parquet |
 | Basenji2 | Track-based (SAD) | Parquet |
-| AlphaGenome | Track-based (SAD) | Parquet |
+| AlphaGenome | API-based (SAD) | Parquet |
 | HyenaDNA | Embedding | Parquet |
 | DNABERT-2 | Embedding | Parquet |
 
 ### Cell types / MPRA datasets
 
-| ID | Cell type | VCF |
+| Config | Cell type | VCF |
 |---|---|---|
-| `hek293t` | HEK293T | `IGVFFI4134MFLL.vcf` |
-| `hepg2` | HepG2 | `IGVFFI4378PZYI.vcf` |
-| `ngn2` | NGN2 neurons | `80k_normalized.vcf` |
+| `config_hek293t.yaml` | HEK293T | `IGVFFI4134MFLL.vcf` |
+| `config_hepg2.yaml` | HepG2 | `IGVFFI4378PZYI.vcf` |
+| `config_ngn2.yaml` | NGN2 neurons | `80k_normalized.vcf` |
 
 ---
 
 ## Requirements
 
 - Snakemake ≥ 7
-- Conda (for per-model environments)
-- NVIDIA GPU (required for all scoring rules)
-- Reference genome: `Data/Genome/hg38.fa` + `.fai`
+- Conda (manages per-model environments automatically)
+- NVIDIA GPU (required for all scoring models)
+- Reference genome: `Data/Genome/hg38.fa` + `.fai` (not tracked — obtain separately)
 - Enformer target file: `Data/targets_human.txt`
 - Basenji model weights: `Models/Basenji/basenji/manuscripts/cross2020/`
 
 ---
 
-## Stage 1 — Scoring
-
-Each cell type has its own config. Run one cell type at a time.
+## Quick start
 
 ```bash
-snakemake --configfile Configs/config_hek293t.yaml \
-  --use-conda --cores 1 \
-  --resources nvidia_gpu=1
+# Dry run first — see which jobs will execute
+snakemake -n --configfile Configs/config_hek293t.yaml --rerun-triggers mtime
+
+# Run on a GPU node (recommended via srun on HPC)
+srun --cpus-per-task=4 --mem=32G --gres=gpu:1 --time=72:00:00 \
+  snakemake -j 1 --configfile Configs/config_hek293t.yaml \
+  --rerun-triggers mtime --use-conda
 ```
 
 Replace `config_hek293t.yaml` with `config_hepg2.yaml` or `config_ngn2.yaml` for other cell types.
 
-Available configs:
+---
 
-| Config | Cell type |
-|---|---|
-| `Configs/config_hek293t.yaml` | HEK293T |
-| `Configs/config_hepg2.yaml` | HepG2 |
-| `Configs/config_ngn2.yaml` | NGN2 |
+## Configuration
 
-**Outputs** go into `results/<experiment_name>/<model>/<model>_scores.parquet`.
-
-### AlphaGenome note
-
-AlphaGenome uses the Google DeepMind public API and requires an API key set in the config:
-```yaml
-models:
-  alphagenome:
-    api_key: "YOUR_KEY_HERE"
-```
-It is run separately from other models to avoid quota contention (`enabled: false` in default configs).
-
-### Optional: filter VCF before scoring
+Each cell type has a dedicated config file in `Configs/`. The most important options:
 
 ```yaml
-filter_vcf: true
+experiment_name: "hek293t"       # used for output directory naming
+vcf: "Data/VCF/IGVFFI4134MFLL.vcf.gz"
+fasta: "Data/Genome/hg38.fa"
+filter_vcf: false                 # set true + max_variants to subsample
 max_variants: 5000
+
+models:
+  enformer:
+    enabled: true
+  hyenadna:
+    enabled: true
+    model_name: "LongSafari/hyenadna-tiny-1k-seqlen-hf"
+    sequence_length: 1024
+  alphagenome:
+    enabled: false                # run separately, see below
+    api_key: "YOUR_KEY_HERE"
+  dnabert2:
+    enabled: true
+```
+
+To run a quick test on 10 variants:
+
+```bash
+snakemake -j 1 --configfile Configs/config_test.yaml --use-conda
 ```
 
 ---
 
-## Stage 2 — Analysis
+## Output
 
-After scoring, run the unified analysis script.  
-Parquets are expected at `{parquet-dir}/{cell_type}/{model}/{model}_scores.parquet`.
+Results are written to `results/<run_id>/` where `run_id` is a timestamp (`YYYYMMDD_HHMMSS`) generated at run start.
 
-```bash
-python3 -u Scripts/unified_celltype_analysis.py \
-  --cell-types hepg2 hek293t ngn2 \
-  --analyses baseline filtered detailed \
-  --batch-size 2000000 \
-  --workers 1 \
-  --save-score-caches \
-  --parquet-dir /path/to/parquets
+```
+results/<run_id>/
+  run_info.yaml                  # config snapshot for reproducibility
+  enformer/enformer_scores.parquet
+  basenji/basenji_scores.parquet
+  hyenadna/hyenadna_scores.parquet
+  alphagenome/alphagenome_scores.parquet
+  dnabert2/dnabert2_scores.parquet
+  logs/                          # per-model logs
 ```
 
-**Key arguments:**
+All scoring scripts support **crash-safe checkpointing**: interrupted runs resume from the last completed chunk automatically.
 
-| Argument | Description |
-|---|---|
-| `--cell-types` | One or more of `hepg2`, `hek293t`, `ngn2` |
-| `--analyses` | `baseline` (all tracks), `filtered` (cell-type tracks only), `detailed` (per-assay/biosample) |
-| `--parquet-dir` | Root directory containing `{ct}/{model}/` subfolders |
-| `--batch-size` | Rows per Parquet batch (default 5 000 000; use 2 000 000 on limited RAM) |
-| `--workers` | Parallel cell types — keep at `1` to avoid OOM |
-| `--save-score-caches` | Write `.npz` caches to `/tmp/mpra_analysis/` for downstream scripts |
-| `--sig-only` | Restrict all metrics to MPRA-significant variants only |
+---
 
-**Outputs** per cell type go into `results/{ct}/analysis/`:
-- `*_metrics_unified.csv` — baseline Spearman ρ per model × score type
-- `*_filtered_metrics_unified.csv` — CT-filtered Spearman ρ
-- `*_alltrack_assay_barchart_*.png` — per-assay performance across all tracks
-- `*_assay_global_vs_filtered_*.png` — global vs CT-filtered comparison per assay
-- Scatter grids, biosample heatmaps, bin-correlation plots
+## AlphaGenome (API-based)
+
+AlphaGenome queries the Google DeepMind public API and requires an API key. It is disabled by default to avoid quota issues when running other models in parallel.
+
+Set your key in the config and enable it separately:
+
+```yaml
+models:
+  alphagenome:
+    enabled: true
+    api_key: "YOUR_KEY_HERE"
+```
+
+Or run it directly:
+
+```bash
+conda activate <alphagenome-env>
+python Scripts/alphagenome_scoring.py \
+  --vcf Data/VCF/IGVFFI4134MFLL.vcf.gz \
+  --out results/<run_id>/alphagenome/alphagenome_scores.parquet \
+  --api_key YOUR_KEY_HERE
+```
 
 ---
 
 ## Repository structure
 
 ```
-Snakefile                    # Scoring pipeline
+Snakefile                    # Pipeline definition
 Configs/
-  config_hek293t.yaml        # Per-cell-type scoring configs
+  config_hek293t.yaml        # Per-cell-type run configs
   config_hepg2.yaml
   config_ngn2.yaml
+  config_test.yaml           # Quick 10-variant test
   *-env.yaml                 # Conda environments per model
-Data/
-  VCF/                       # Input variant files
-  Genome/                    # hg38 reference (not tracked)
-  MPRA/                      # Ground-truth MPRA tables
-  targets_human.txt          # Enformer track list
-Models/
-  Basenji/                   # Basenji2 model weights & scripts
-Scripts/
-  unified_celltype_analysis.py   # Main analysis script
+Scripts/                     # Scoring scripts (called by Snakefile)
   enformer_scoring.py
   basenji_scoring.py
   alphagenome_scoring.py
   hyenadna_scoring.py
   dnabert2_scoring.py
   filter_vcf.py
-  gen_alltrack_figures.py    # Lightweight standalone figure regenerator
+Data/
+  VCF/                       # Input variant files
+  Genome/                    # hg38 reference (not tracked)
+  MPRA/                      # Ground-truth MPRA effect tables
+  targets_human.txt          # Enformer track list
+Models/
+  Basenji/                   # Basenji2 model weights & scripts
 results/                     # Generated outputs (not tracked)
 ```
