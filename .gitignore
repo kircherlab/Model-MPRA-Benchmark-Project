@@ -24,3 +24,10 @@ Archive/
 Data/Genome/*.fa
 Data/Genome/*.fa.gz
 Data/Genome/*.fai
+
+# VCF input files (large, obtain separately)
+Data/VCF/*.vcf
+Data/VCF/*.vcf.gz
+Data/VCF/*.vcf.gz.tbi
+Data/VCF/*.vcf.gz.csi
+Data/VCF/*.original
