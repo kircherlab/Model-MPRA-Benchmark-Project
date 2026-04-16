@@ -19,3 +19,8 @@ results/
 **/*.ckpt/
 Archive/
 **/.snakemake/
+
+# Reference genome files (large, obtain separately)
+Data/Genome/*.fa
+Data/Genome/*.fa.gz
+Data/Genome/*.fai
