@@ -4,7 +4,7 @@
 experiment_name: "hepg2"
 
 # ── Input data ───────────────────────────────────────────────────────────────
-vcf: "Data/VCF/IGVFFI4378PZYI.vcf.gz"
+vcf: "Data/VCF/hepg2.vcf.gz"
 fasta: "Data/Genome/hg38.fa"
 targets: "Data/targets_human.txt"
 filter_vcf: false

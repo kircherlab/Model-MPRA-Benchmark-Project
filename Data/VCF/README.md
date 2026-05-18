@@ -6,8 +6,8 @@ This directory contains the input variant files for the pipeline.
 
 | File | Cell type | Source |
 |---|---|---|
-| `IGVFFI4134MFLL.vcf.gz` | HEK293T | ENCODE MPRA |
-| `IGVFFI4378PZYI.vcf.gz` | HepG2 | ENCODE MPRA |
+| `hek293t.vcf.gz` | HEK293T | IGVF MPRA (IGVFFI4378PZYI) |
+| `hepg2.vcf.gz` | HepG2 | IGVF MPRA (IGVFFI4134MFLL) |
 | `80k_normalized.vcf.gz` | NGN2 neurons | Schraivogel et al. |
 
 VCF files are not tracked in this repository due to size. Obtain them from the respective sources and place them here before running the pipeline.

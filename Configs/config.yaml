@@ -7,7 +7,7 @@
 experiment_name: "default"
 
 # ── Input data ───────────────────────────────────────────────────────────────
-vcf: "Data/VCF/IGVFFI4134MFLL.vcf.gz"
+vcf: "Data/VCF/hek293t.vcf.gz"
 fasta: "Data/Genome/hg38.fa"
 targets: "Data/targets_human.txt"
 filter_vcf: false
