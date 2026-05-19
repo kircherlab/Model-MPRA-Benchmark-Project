@@ -14,10 +14,12 @@ Output (Parquet, snappy-compressed):
 """
 
 import argparse
+import gzip
 import os
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 
 import h5py
@@ -73,6 +75,33 @@ def load_targets(targets_path):
 
 
 # ── Run basenji_sad.py ───────────────────────────────────────────────────────
+
+def filter_snps_only(vcf_path):
+    """Write a temp gzipped VCF containing only SNPs (len(REF)==1, len(ALT)==1).
+
+    Basenji SAD crashes on indels (empty tensor in reverse-complement layer).
+    Returns (tmp_vcf_path, n_kept, n_skipped).
+    """
+    tmp = tempfile.NamedTemporaryFile(
+        suffix="_snps_only.vcf.gz", delete=False
+    )
+    n_kept = n_skipped = 0
+    with gzip.open(vcf_path, "rt") as fin, gzip.open(tmp.name, "wt") as fout:
+        for line in fin:
+            if line.startswith("#"):
+                fout.write(line)
+                continue
+            cols = line.split("\t")
+            ref, alt = cols[3], cols[4]
+            if len(ref) == 1 and len(alt) == 1:
+                fout.write(line)
+                n_kept += 1
+            else:
+                n_skipped += 1
+                log(f"Skipping non-SNP variant (indel): "
+                    f"{cols[0]}:{cols[1]} {ref}>{alt}")
+    return tmp.name, n_kept, n_skipped
+
 
 def run_basenji_sad(vcf, fasta, params, model, basenji_script, out_dir,
                     rc=False, shifts="0"):
@@ -292,9 +321,15 @@ def main():
     # ── Load track metadata ──────────────────────────────────────────────
     descriptions, output_types, biosample_names = load_targets(args.targets)
 
-    # ── Step 1: Run basenji_sad.py → HDF5 ────────────────────────────────
+    # ── Step 1a: Filter to SNPs only (indels crash basenji's RC layer) ────
+    snp_vcf, n_kept, n_skipped = filter_snps_only(args.vcf)
+    if n_skipped:
+        log(f"Filtered {n_skipped} non-SNP variant(s) — Basenji supports SNPs only. "
+            f"{n_kept} SNPs passed.")
+
+    # ── Step 1b: Run basenji_sad.py → HDF5 ───────────────────────────────
     h5_path = run_basenji_sad(
-        vcf=args.vcf,
+        vcf=snp_vcf,
         fasta=args.fasta,
         params=args.params,
         model=args.model,
@@ -315,6 +350,11 @@ def main():
         log("Cleaned up temporary HDF5 files")
     except Exception as e:
         log(f"Warning: cleanup failed: {e}")
+
+    try:
+        os.remove(snp_vcf)
+    except Exception:
+        pass
 
     elapsed = time.time() - start_time
     log(f"Total time: {elapsed:.0f}s")

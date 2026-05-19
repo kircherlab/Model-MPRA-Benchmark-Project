@@ -4,7 +4,7 @@
 experiment_name: "ngn2"
 
 # ── Input data ───────────────────────────────────────────────────────────────
-vcf: "Data/VCF/80k_normalized.vcf.gz"
+vcf: "Data/VCF/ngn2.vcf.gz"
 fasta: "Data/Genome/hg38.fa"
 targets: "Data/targets_human.txt"
 filter_vcf: false
